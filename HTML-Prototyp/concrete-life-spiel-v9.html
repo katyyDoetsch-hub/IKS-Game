@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concrete Life – Prototyp v9</title>
+<style>
+  :root {
+    --cyan: #5FD3C6; --cyan-soft: #8FD3C8; --ink: #DDF3F0; --amber: #F0B072; --sand: #E8B07A;
+    --mono: "JetBrains Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+    --sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #03161A; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
+    overflow: hidden; font-family: var(--sans); color: var(--ink); cursor: none; user-select: none; }
+  #cv { position: absolute; inset: 0; width: 1600px; height: 900px; display: block; touch-action: none; }
+  .mono { font-family: var(--mono); letter-spacing: .04em; }
+  .klein { font-size: 13px; color: var(--cyan-soft); }
+
+  /* Aufgabe oben – leuchtet bei jeder neuen Aufgabe auf */
+  #aufgabe { position: absolute; left: 50%; top: 30px; transform: translateX(-50%); max-width: 1000px;
+    padding: 12px 24px; border-radius: 999px; background: rgba(8, 28, 33, 0.86); border: 1px solid rgba(240, 176, 114, .55);
+    font-size: 22px; display: flex; gap: 12px; align-items: center; transition: opacity .4s; white-space: nowrap;
+    box-shadow: 0 0 18px 2px rgba(240,176,114,.22); pointer-events: none; }
+  #aufgabe .mono { font-size: 12px; color: var(--amber); }
+  #aufgabe.leer { opacity: 0; }
+  #aufgabe.neu { animation: aufleuchten 2.6s ease-out; }
+  @keyframes aufleuchten {
+    0% { transform: translateX(-50%) scale(1.14); background: rgba(240,176,114,.55); box-shadow: 0 0 0 0 rgba(240,176,114,.9); }
+    25% { box-shadow: 0 0 46px 14px rgba(240,176,114,.55); }
+    100% { transform: translateX(-50%) scale(1); background: rgba(8,28,33,.86); box-shadow: 0 0 18px 2px rgba(240,176,114,.22); }
+  }
+
+  /* Funk – nur noch wenige kurze Sätze */
+  #funkbox { position: absolute; left: 340px; bottom: 40px; width: 780px; min-height: 58px; pointer-events: none;
+    padding: 14px 22px; background: rgba(8, 28, 33, 0.86); border-radius: 8px; display: flex; gap: 16px; align-items: baseline;
+    font-size: 20px; line-height: 28px; transition: opacity .3s; }
+  #funkbox.leer { opacity: 0; }
+  #funkbox { padding-right: 56px; }
+  #funkpfeil { position: absolute; right: 20px; bottom: 12px; font-size: 22px; color: var(--amber); opacity: 0; }
+  #funkpfeil.an { opacity: 1; animation: pfeil 1s ease-in-out infinite; }
+  @keyframes pfeil { 0%, 100% { transform: translateY(-3px); } 50% { transform: translateY(4px); } }
+  #funkwer { font-size: 12px; color: var(--cyan-soft); white-space: nowrap; }
+  #funkwer.taucherin { color: var(--sand); }
+
+  .karte { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 760px; padding: 40px 48px;
+    background: rgba(6, 24, 28, 0.9); border: 1px solid rgba(95, 211, 198, 0.35); border-radius: 14px; text-align: center;
+    pointer-events: none; transition: opacity .5s; }
+  .karte.weg { opacity: 0; }
+  .karte h1 { margin: 0 0 10px; font-size: 56px; letter-spacing: -1px; color: #fff; }
+  .karte p { margin: 0 0 12px; font-size: 19px; line-height: 28px; }
+  .karte .halte { margin-top: 22px; font-family: var(--mono); font-size: 14px; color: var(--amber); }
+
+  #ortkarte { position: absolute; left: 60px; top: 190px; pointer-events: none; opacity: 0; transition: opacity 1s; }
+  #ortkarte.an { opacity: 1; }
+  #ortkarte .ort { font-size: 64px; font-weight: 600; letter-spacing: -1px; color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,.5); }
+  #ortkarte .unter { font-family: var(--mono); font-size: 16px; letter-spacing: .12em; color: var(--sand); margin-top: 4px; }
+  #ortkarte .linie { width: 120px; height: 3px; background: var(--sand); margin: 14px 0 10px; }
+
+  #hilfe { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 620px; padding: 24px 28px;
+    background: rgba(6, 24, 28, 0.95); border: 1px solid rgba(95, 211, 198, 0.35); border-radius: 12px; font-size: 15px; line-height: 23px; display: none; }
+  #hilfe.offen { display: block; }
+  #hilfe h3 { margin: 0 0 8px; font-size: 18px; color: #fff; }
+  #hilfe kbd { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border: 1px solid rgba(221, 243, 240, .4); border-radius: 4px; }
+  #fade { position: absolute; inset: 0; background: #03161A; opacity: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; }
+  #fadetext { font-family: var(--mono); font-size: 34px; letter-spacing: .12em; color: var(--sand); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="cv" width="1600" height="900"></canvas>
+
+  <div id="aufgabe" class="leer"><span class="mono" id="aufgabelabel">AUFGABE</span><span id="aufgabetext"></span></div>
+  <div id="funkbox" class="leer"><span id="funkwer" class="mono">FUNK</span><span id="funktext"></span><span id="funkpfeil">▼</span></div>
+
+  <div id="startkarte" class="karte">
+    <div class="mono klein">EIN TAUCHGANG AN DER HAFENMAUER VON SYDNEY</div>
+    <h1>Concrete Life</h1>
+    <div class="mono klein" style="margin: -4px 0 14px">EIN SPIEL ÜBER DAS PROJEKT LIVING SEAWALLS</div>
+    <p>Warum leben an dieser Wand so wenige Tiere – und lässt sich das ändern?</p>
+    <div class="halte">Zeige irgendwohin und halte gedrückt, um den Tauchgang zu starten</div>
+  </div>
+
+  <div id="ortkarte">
+    <div class="ort">Sydney Harbour</div>
+    <div class="linie"></div>
+    <div class="unter">AUSTRALIEN · FORSCHUNGSBOOT</div>
+  </div>
+
+  <div id="hilfe">
+    <h3>Steuerung (Prototyp)</h3>
+    <div><b>Maus bewegen</b> = Licht / Scanner zeigen</div>
+    <div><b>Maustaste halten</b> = einschalten, scannen, auswählen, montieren</div>
+    <div><b>Mausrad</b>, <kbd>←</kbd> <kbd>→</kbd> oder Drehregler am Scanner ziehen = Regler drehen (Zeit oder Panel)</div>
+    <div style="margin-top: 10px"><b>Großer Scanner:</b> kurz drücken (oder <kbd>Leertaste</kbd>) = weiter</div>
+    <div style="margin-top: 10px"><b>Zum Testen:</b> <kbd>1</kbd> Ankunft · <kbd>2</kbd> Entdecken · <kbd>3</kbd> Übergang Archiv · <kbd>4</kbd> Rückblick · <kbd>5</kbd> Living Seawalls · <kbd>6</kbd> 2 Jahre später · <kbd>7</kbd> Minispiele · <kbd>8</kbd> Ergebnis<br>
+    <kbd>R</kbd> Neustart · <kbd>H</kbd> Hilfe</div>
+  </div>
+
+  <div id="fade"><div id="fadetext"></div></div>
+</div>
+
+<script>
+"use strict";
+// =====================================================================
+//  CONCRETE LIFE – Prototyp v9 (IKS1) – Sequenzen am Anfang, Minispiele am Ende
+//  Station 1 Ankunft (Boot, Briefing auf dem Scanner, Sprung, Licht an)
+//  Station 2 Entdecken (einmal suchen, alle drei Tiere finden, Ping nach 6 s)
+//  Station 3 Minigames (Fisch: Zeitdruck · Schnecke: Ebbe · Auster: Larven)
+//  Station 4 Rückblick (Scanner groß, Regler zurück: 1844 · 1788 · heute)
+//  Station 5 Living Seawalls (Lieferung vom Boot, untersuchen, scannen, Panels bei Ebbe)
+//  Station 6 Zwei Jahre später (Boot, vorspulen, Sprung, Tiere lösen, Ergebnis)
+//  Licht = Maus (zeigen + gedrückt halten) · Drehregler = Mausrad / Pfeiltasten / Regler am Scanner ziehen
+// =====================================================================
+
+// ---------------------------------------------------------------------
+//  EINSTELLUNGEN – hier lässt sich alles schnell anpassen
+// ---------------------------------------------------------------------
+const CONFIG = {
+  // Ordner mit den SVGs (relativ zu dieser Datei). Liegen die SVGs im selben Ordner: "".
+  ASSET_PATH: "../",
+  // Wie lange man halten muss (Sekunden)
+  haltenStart: 1.0, haltenScan: 1.2, haltenSpot: 0.7, haltenMontage: 1.0,
+  // Station 1: Sekunden pro Briefing-Bild
+  briefingBild: 5,
+  // Station 2: nach so vielen Sekunden ohne Fund zeigt der Scanner die Richtung (Ping)
+  pingNach: 6,
+  // Dauer der Beobachtungen (Station 3) und der Minispiele (Station 6)
+  seq: { fisch: 8, schnecke: 10, auster: 10 },      // Beobachtungen am Anfang (nicht spielbar)
+  mini2: { fisch: 10, schnecke: 12, auster: 14 },   // Minispiele am Ende: so viel Zeit hat man
+  // Temperaturen – PLATZHALTER, bitte recherchieren
+  wasserTemp: 19, wandTempEbbe: 34,
+  // Station 6: Ergebnis (Quelle: NSW Seabirds to Seascapes / WEF-Reuters)
+  // Quelle: Australian Geographic 2022 – Zwei-Jahres-Studie zur ersten Living Seawall (Sawmillers Reserve, 2018)
+  artenPlus: 20,              // ca. 20 % mehr Arten als an der unveränderten Mauer
+  artenGesamt: 115,           // Arten haben die Wand in zwei Jahren besiedelt – so viele wie an natürlichen Felsriffen
+  // Ende: nach so vielen Sekunden ohne Eingabe neu starten
+  endeReset: 40,
+  // Mitten im Spiel: nach so vielen Sekunden ohne jede Eingabe zurück zum Start
+  inaktivReset: 120,
+  // Stimmung: Dunkelheit unter Wasser (0 = hell, 1 = schwarz) und Lichtkegel
+  dunkelheit: 0.58, lichtRadius: 270,
+};
+
+// ---------------------------------------------------------------------
+//  Grundgerüst
+// ---------------------------------------------------------------------
+const W = 1600, H = 900;
+const MONO = '"JetBrains Mono", "Cascadia Mono", Consolas, monospace';
+const SANS = '"Inter", "Segoe UI", system-ui, sans-serif';
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const stage = document.getElementById("stage");
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const rad = (d) => (d * Math.PI) / 180;
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+let skala = 1;
+function anpassen() {
+  skala = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.transform = `translate(${(innerWidth - W * skala) / 2}px, ${(innerHeight - H * skala) / 2}px) scale(${skala})`;
+}
+addEventListener("resize", anpassen);
+anpassen();
+
+// ---------------------------------------------------------------------
+//  Bilder (Katjas SVGs) – mit eingebetteter Ersatzversion, falls der Pfad nicht passt
+// ---------------------------------------------------------------------
+const FALLBACK = {
+  taucherin: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-72 4 392 280" width="392" height="280"><g id="taucherin" transform="rotate(-24 230 150)"><g id="flasche"><rect x="176" y="50" width="110" height="26" rx="13" fill="#5f8799"/><rect x="168" y="62" width="114" height="28" rx="14" fill="#7fa7b8"/><rect x="176" y="66" width="98" height="6" rx="3" fill="#a9c7d3"/><rect x="206" y="62" width="9" height="28" fill="#d8e2e6"/><rect x="254" y="62" width="9" height="28" fill="#d8e2e6"/><rect x="282" y="56" width="10" height="9" rx="2" fill="#8a9aa0"/><rect x="280" y="70" width="10" height="9" rx="2" fill="#8a9aa0"/></g><g id="arm-hinten"><path d="M262 106 Q276 132 284 158" stroke="#0f1b1f" stroke-width="13" stroke-linecap="round" fill="none"/><ellipse cx="286" cy="166" rx="7" ry="9" fill="#c9702e"/></g><g id="bein-hinten"><path d="M162 102 Q130 104 100 110 Q72 114 50 116" stroke="#0f1b1f" stroke-width="18" stroke-linecap="round" fill="none"/><g id="flosse-hinten" transform="translate(46 116) rotate(-4)"><path d="M-18 -10 L-112 -21 Q-120 -21 -120 -12 L-118 14 Q-117 21 -109 21 L-18 10 Z" fill="#c9702e"/><path d="M-24 -3 L-112 -8 L-112 6 L-24 3 Z" fill="#d98a4a"/><path d="M6 -11 Q-10 -13 -22 -11 L-22 11 Q-10 13 6 11 Q11 0 6 -11 Z" fill="#0d181b"/></g></g><g id="koerper"><path d="M150 90 Q210 76 280 84 Q302 98 292 122 Q222 134 150 122 Z" fill="#16262b"/><path d="M158 92 Q214 80 276 87 L278 92 Q214 86 160 98 Z" fill="#2a4248"/><path d="M156 118 Q222 128 288 116" stroke="#e8893e" stroke-width="3.5" fill="none" stroke-linecap="round"/><rect x="236" y="82" width="9" height="44" rx="2" fill="#0a1416"/><rect x="196" y="80" width="8" height="46" rx="2" fill="#0a1416"/></g><g id="bein-vorne"><path d="M168 112 Q136 118 108 128 Q82 136 58 140" stroke="#16262b" stroke-width="18" stroke-linecap="round" fill="none"/><path d="M166 121 Q136 127 110 136 Q86 144 62 148" stroke="#e8893e" stroke-width="3" stroke-linecap="round" fill="none"/><g id="flosse-vorne" transform="translate(54 140) rotate(4)"><path d="M-18 -10 L-112 -21 Q-120 -21 -120 -12 L-118 14 Q-117 21 -109 21 L-18 10 Z" fill="#e8893e"/><path d="M-24 -3 L-112 -8 L-112 6 L-24 3 Z" fill="#f2a865"/><path d="M-18 -10 L-112 -21" stroke="#b5602a" stroke-width="2" stroke-linecap="round"/><path d="M-18 10 L-109 21" stroke="#b5602a" stroke-width="2" stroke-linecap="round"/><path d="M6 -11 Q-10 -13 -22 -11 L-22 11 Q-10 13 6 11 Q11 0 6 -11 Z" fill="#121f23"/></g></g><g id="kopf"><circle cx="304" cy="92" r="20" fill="#16262b"/><path d="M288 80 Q302 70 318 76" stroke="#e8893e" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cx="317" cy="99" rx="10" ry="11" fill="#d9a888"/><rect x="310" y="86" width="22" height="15" rx="5" fill="#0a1416"/><rect x="313" y="89" width="16" height="9" rx="3" fill="#4f6d76"/><rect x="315" y="90" width="5" height="3" rx="1" fill="#a9c9d0"/><circle cx="324" cy="110" r="6" fill="#0a1416"/><path d="M320 113 C306 126 296 74 290 66" stroke="#0a1416" stroke-width="3.5" fill="none" stroke-linecap="round"/></g><g id="arm-vorne"><path d="M268 112 Q286 140 296 170" stroke="#16262b" stroke-width="13" stroke-linecap="round" fill="none"/><path d="M274 114 Q288 136 296 158" stroke="#2a4248" stroke-width="3" stroke-linecap="round" fill="none"/><ellipse cx="298" cy="178" rx="7.5" ry="9.5" fill="#e8893e"/></g></g><g id="blasen" fill="none" stroke="#ffffff" stroke-width="1.6" opacity="0.7"><circle cx="296" cy="42" r="4"/><circle cx="302" cy="28" r="3"/><circle cx="297" cy="16" r="2.2"/></g></svg>`,
+  fisch: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 72" width="160" height="72"><g id="schwanz"><path d="M24 36 L4 20 Q2 36 4 52 Z" fill="#8a6236"/></g><g id="rueckenflosse"><path d="M38 26 Q70 8 126 16 L124 24 Q80 18 38 30 Z" fill="#8a6236"/></g><g id="koerper"><path d="M20 36 Q40 18 100 20 Q136 22 148 38 Q140 54 100 54 Q44 56 20 36 Z" fill="#b9894f"/><path d="M30 42 Q60 54 100 54 Q136 54 146 42 Q120 48 100 47 Q60 48 30 42 Z" fill="#e3c48f"/><path d="M52 22 Q58 34 54 50" stroke="#8a6236" stroke-width="7" fill="none" opacity="0.55" stroke-linecap="round"/><path d="M74 20 Q80 34 76 52" stroke="#8a6236" stroke-width="7" fill="none" opacity="0.55" stroke-linecap="round"/><path d="M96 20 Q102 34 98 52" stroke="#8a6236" stroke-width="7" fill="none" opacity="0.55" stroke-linecap="round"/><path d="M128 18 Q131 7 137 17" stroke="#c45a3c" stroke-width="4" fill="none" stroke-linecap="round"/></g><g id="brustflosse"><ellipse cx="110" cy="44" rx="11" ry="5" fill="#d7a868" transform="rotate(25 110 44)"/></g><g id="gesicht"><circle cx="134" cy="31" r="5" fill="#f4efe2"/><circle cx="135.5" cy="31" r="2.8" fill="#1d2b2e"/><path d="M141 42 Q145 43 147 41" stroke="#6b4a28" stroke-width="1.5" fill="none" stroke-linecap="round"/></g></svg>`,
+  auster: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 112" width="140" height="112"><g id="schale"><path d="M14 62 Q8 34 34 18 Q60 4 92 12 Q124 20 130 50 Q134 78 112 96 Q84 110 52 104 Q20 96 14 62 Z" fill="#6e5f74"/><path d="M24 60 Q20 38 40 26 Q62 14 90 20 Q116 28 120 52 Q122 76 104 88 Q80 100 54 96 Q28 88 24 60 Z" fill="#8f8a93"/><path d="M36 58 Q34 42 48 34 Q66 26 88 30 Q106 36 108 54 Q108 72 94 80 Q76 88 58 84 Q38 78 36 58 Z" fill="#a69fa8"/><path d="M50 56 Q50 46 60 42 Q74 38 86 42 Q96 48 94 58 Q92 68 80 72 Q66 74 56 68 Q50 64 50 56 Z" fill="#bdb6be"/></g><g id="rillen" fill="none" stroke="#6e5f74" stroke-width="2" opacity="0.6" stroke-linecap="round"><path d="M30 44 Q44 30 62 26"/><path d="M100 30 Q114 40 116 56"/><path d="M40 86 Q56 96 76 94"/><path d="M102 80 Q112 72 114 64"/></g><g id="spalt"><path d="M40 64 Q60 70 78 66 Q94 62 104 54" stroke="#4a3f50" stroke-width="3" fill="none" stroke-linecap="round"/></g></svg>`,
+  schnecke: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 104" width="120" height="104"><g id="fuss"><path d="M8 88 Q14 78 40 78 L100 78 Q114 80 114 90 Q110 96 96 96 L20 96 Q8 96 8 88 Z" fill="#b9a99a"/><path d="M100 80 Q106 66 112 62" stroke="#a8978a" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M104 82 Q114 72 118 70" stroke="#a8978a" stroke-width="3" fill="none" stroke-linecap="round"/></g><g id="haus"><path d="M14 82 Q16 44 52 16 Q60 10 66 16 Q100 44 104 82 Z" fill="#d8cdb2"/><path d="M30 50 Q50 40 82 46 L88 56 Q56 50 26 60 Z" fill="#3f3a3a"/><path d="M20 66 Q52 56 94 62 L98 72 Q56 66 17 76 Z" fill="#3f3a3a"/><path d="M42 30 Q56 24 72 30 L78 38 Q58 32 36 40 Z" fill="#3f3a3a"/><path d="M14 82 Q60 74 104 82 Q60 88 14 82 Z" fill="#a89e86"/><path d="M46 22 Q40 40 38 60" stroke="#f0e8d4" stroke-width="4" fill="none" opacity="0.6" stroke-linecap="round"/></g></svg>`,
+};
+// Living-Seawall-Panel (Katjas LS.svg), eingebettet als Ersatz, falls der Pfad nicht erreichbar ist
+FALLBACK.ls = "<svg width=\"260\" height=\"238\" viewBox=\"0 0 260 238\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n<g filter=\"url(#filter0_n_19_2)\">\n<path d=\"M52.6029 24.2343C52.6029 24.2343 44.0564 34.1074 41.7822 42.1459C39.2819 50.9833 48.0592 57.6931 43.4003 65.608C39.2853 72.599 31.825 72.3644 25.3317 75.8559C16.5199 80.5941 14.9877 83.198 10.9729 92.3619C8.4131 98.2047 6.40843 106.584 6.47474 112.963C6.5702 122.145 11.5531 126.717 17.4448 133.76C24.3664 142.035 27.7211 145.641 29.7861 155.015C31.6522 163.486 24.3065 169.544 28.4148 177.184C32.7641 185.271 42.2806 182.131 49.2123 188.154C60.7524 198.18 55.6957 212.625 66.8102 223.121C73.7098 229.637 78.4416 233.232 87.6076 235.691C97.5304 238.353 103.792 238.823 113.616 235.64C116.38 234.744 119.545 229.636 122.572 227.772C127.885 224.503 132.807 223.104 132.807 223.104C132.807 223.104 137.984 224.503 143.296 227.772C146.323 229.636 149.489 234.744 152.252 235.64C162.077 238.823 168.338 238.353 178.261 235.691C187.427 233.232 192.159 229.637 199.058 223.121C210.173 212.625 205.116 198.18 216.656 188.154C223.588 182.131 233.104 185.271 237.454 177.184C241.562 169.544 234.216 163.486 236.082 155.015C238.147 145.641 241.502 142.035 248.424 133.76C254.315 126.717 259.298 122.145 259.394 112.963C259.46 106.584 257.455 98.2047 254.896 92.3619C250.881 83.198 249.348 80.5941 240.537 75.8559C234.043 72.3644 226.583 72.599 222.468 65.608C217.809 57.6931 226.586 50.9833 224.086 42.1459C221.812 34.1074 213.266 24.2343 213.266 24.2343C213.266 24.2343 204.504 13.6834 197.118 10.8629C190.979 8.5187 187.405 8.41045 179.445 9.25615C173.216 9.918 167.027 13.5265 162.354 13.5265C159.684 13.5265 155.342 14.205 151.405 12.2597C148.251 10.7009 146.483 8.48862 143.714 5.56408C140.377 2.03869 140.037 0.271442 132.934 0C125.831 0.271442 125.492 2.03869 122.154 5.56408C119.385 8.48862 117.618 10.7009 114.463 12.2597C110.526 14.205 106.184 13.5265 103.515 13.5265C98.8411 13.5265 92.6524 9.918 86.4232 9.25615C78.4636 8.41045 74.8895 8.5187 68.7502 10.8629C61.364 13.6834 52.6029 24.2343 52.6029 24.2343Z\" fill=\"#ADADAD\"/>\n</g>\n<g filter=\"url(#filter1_i_19_2)\">\n<path d=\"M133.288 24.6987C138.112 24.6987 142.023 28.6098 142.023 33.4341C142.023 38.2581 138.112 42.1684 133.288 42.1684C128.464 42.1683 124.552 38.258 124.552 33.4341C124.552 28.6099 128.463 24.6988 133.288 24.6987ZM133.288 28.9341C130.802 28.9341 128.788 30.9488 128.788 33.4341C128.788 35.9191 130.802 37.9341 133.288 37.9341C135.773 37.9341 137.787 35.9191 137.788 33.4341C137.788 30.9488 135.773 28.9341 133.288 28.9341Z\" fill=\"#8A8A8A\"/>\n</g>\n<g filter=\"url(#filter2_i_19_2)\">\n<path d=\"M133.29 99.3093C138.114 99.3093 142.025 103.22 142.025 108.045C142.025 112.869 138.114 116.779 133.29 116.779C128.466 116.779 124.555 112.869 124.555 108.045C124.555 103.22 128.465 99.3095 133.29 99.3093ZM133.29 103.545C130.804 103.545 128.79 105.559 128.79 108.045C128.79 110.53 130.804 112.545 133.29 112.545C135.775 112.545 137.789 110.53 137.79 108.045C137.79 105.559 135.775 103.545 133.29 103.545Z\" fill=\"#8A8A8A\"/>\n</g>\n<g filter=\"url(#filter3_i_19_2)\">\n<path d=\"M207.539 154.709C212.363 154.709 216.274 158.62 216.274 163.444C216.274 168.268 212.363 172.179 207.539 172.179C202.715 172.179 198.803 168.268 198.803 163.444C198.803 158.62 202.714 154.709 207.539 154.709ZM207.539 158.944C205.053 158.944 203.039 160.959 203.039 163.444C203.039 165.929 205.053 167.944 207.539 167.944C210.024 167.944 212.038 165.929 212.039 163.444C212.039 160.959 210.024 158.944 207.539 158.944Z\" fill=\"#8A8A8A\"/>\n</g>\n<g filter=\"url(#filter4_i_19_2)\">\n<path d=\"M57.9238 153.517C62.7481 153.517 66.6592 157.428 66.6592 162.252C66.659 167.076 62.748 170.987 57.9238 170.987C53.0998 170.986 49.1897 167.076 49.1895 162.252C49.1895 157.428 53.0997 153.517 57.9238 153.517ZM57.9238 157.752C55.4385 157.752 53.4238 159.767 53.4238 162.252C53.4241 164.737 55.4387 166.752 57.9238 166.752C60.409 166.752 62.4236 164.737 62.4238 162.252C62.4238 159.767 60.4091 157.752 57.9238 157.752Z\" fill=\"#8A8A8A\"/>\n</g>\n<g filter=\"url(#filter5_d_19_2)\">\n<path d=\"M58.4819 60.8814C58.4819 56.0624 59.9726 51.3613 62.7496 47.4228L63.8804 45.8191C72.4073 33.7257 88.5657 29.8057 101.686 36.6476L119.91 46.1508C128.7 50.7341 139.185 50.6799 147.927 46.006L164.925 36.9172C177.979 29.9379 194.187 33.7755 202.725 45.867L203.822 47.4203C206.604 51.3602 208.097 56.065 208.097 60.8881C208.097 73.7833 197.644 84.237 184.748 84.237H81.8375C68.9386 84.237 58.4819 73.7803 58.4819 60.8814Z\" fill=\"#B5B5B5\"/>\n</g>\n<g filter=\"url(#filter6_d_19_2)\">\n<path d=\"M44.1857 126.426C33.4146 106.361 57.2158 85.5571 75.6591 98.9155C76.5057 99.5287 77.396 100.079 78.3229 100.563L118.069 121.289C126.858 125.872 137.344 125.818 146.085 121.144L184.47 100.621C185.446 100.099 186.379 99.5005 187.261 98.8316C204.997 85.3784 228.735 105.121 218.738 125.012L211.296 139.82C207.075 148.217 198.48 153.517 189.082 153.517H73.7195C64.4884 153.517 56.0046 148.442 51.6385 140.309L44.1857 126.426Z\" fill=\"#B5B5B5\"/>\n</g>\n<g filter=\"url(#filter7_d_19_2)\">\n<path d=\"M67.844 198.561C57.1181 186.222 70.6727 167.937 85.5969 174.612L87.8795 175.633L125.474 187.74C131.526 189.688 138.04 189.664 144.076 187.671L180.534 175.633L182.5 174.712C197.198 167.827 211.066 185.591 200.822 198.179C197.922 201.743 193.572 203.811 188.978 203.811H79.3643C74.9453 203.811 70.7432 201.896 67.844 198.561Z\" fill=\"#B5B5B5\"/>\n</g>\n<g filter=\"url(#filter8_i_19_2)\">\n<path d=\"M57.9238 54.3755C57.9238 49.5564 59.4145 44.8554 62.1915 40.9169L63.3223 39.3132C71.8492 27.2197 88.0076 23.2998 101.128 30.1416L119.352 39.6448C128.141 44.2281 138.627 44.1739 147.369 39.5001L164.367 30.4113C177.421 23.4319 193.629 27.2695 202.167 39.3611L203.263 40.9144C206.045 44.8543 207.539 49.559 207.539 54.3821C207.539 67.2774 197.085 77.731 184.19 77.731H81.2794C68.3805 77.731 57.9238 67.2744 57.9238 54.3755Z\" fill=\"#999999\"/>\n</g>\n<g filter=\"url(#filter9_i_19_2)\">\n<path d=\"M44.1857 120.632C33.4146 100.568 57.2158 79.7637 75.6591 93.1221C76.5057 93.7353 77.396 94.2858 78.3229 94.7691L118.069 115.495C126.858 120.078 137.344 120.024 146.085 115.35L184.47 94.8272C185.446 94.3053 186.379 93.7071 187.261 93.0381C204.997 79.585 228.735 99.3279 218.738 119.218L211.296 134.026C207.075 142.424 198.48 147.723 189.082 147.723H73.7195C64.4884 147.723 56.0046 142.649 51.6385 134.515L44.1857 120.632Z\" fill=\"#999999\"/>\n</g>\n<g filter=\"url(#filter10_i_19_2)\">\n<path d=\"M67.844 192.723C57.1181 180.384 70.6727 162.099 85.5969 168.774L87.8795 169.795L125.474 181.902C131.526 183.851 138.04 183.827 144.076 181.833L180.534 169.795L182.5 168.874C197.198 161.99 211.066 179.753 200.822 192.342C197.922 195.905 193.572 197.973 188.978 197.973H79.3643C74.9453 197.973 70.7432 196.058 67.844 192.723Z\" fill=\"#999999\"/>\n</g>\n<defs>\n<filter id=\"filter0_n_19_2\" x=\"6.47314\" y=\"0\" width=\"252.922\" height=\"237.86\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feTurbulence type=\"fractalNoise\" baseFrequency=\"0.58823525905609131 0.58823525905609131\" stitchTiles=\"stitch\" numOctaves=\"3\" result=\"noise\" seed=\"7637\" />\n<feColorMatrix in=\"noise\" type=\"luminanceToAlpha\" result=\"alphaNoise\" />\n<feComponentTransfer in=\"alphaNoise\" result=\"coloredNoise1\">\n<feFuncA type=\"discrete\" tableValues=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 \"/>\n</feComponentTransfer>\n<feComposite operator=\"in\" in2=\"shape\" in=\"coloredNoise1\" result=\"noise1Clipped\" />\n<feFlood flood-color=\"rgba(117, 117, 117, 0.25)\" result=\"color1Flood\" />\n<feComposite operator=\"in\" in2=\"noise1Clipped\" in=\"color1Flood\" result=\"color1\" />\n<feMerge result=\"effect1_noise_19_2\">\n<feMergeNode in=\"shape\" />\n<feMergeNode in=\"color1\" />\n</feMerge>\n</filter>\n<filter id=\"filter1_i_19_2\" x=\"124.553\" y=\"24.6987\" width=\"17.4697\" height=\"21.4697\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"4\"/>\n<feGaussianBlur stdDeviation=\"2\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter2_i_19_2\" x=\"124.554\" y=\"99.3093\" width=\"17.4707\" height=\"21.4697\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"4\"/>\n<feGaussianBlur stdDeviation=\"2\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter3_i_19_2\" x=\"198.804\" y=\"154.709\" width=\"17.4697\" height=\"21.4697\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"4\"/>\n<feGaussianBlur stdDeviation=\"2\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter4_i_19_2\" x=\"49.1885\" y=\"153.517\" width=\"17.4707\" height=\"21.4697\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"4\"/>\n<feGaussianBlur stdDeviation=\"2\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter5_d_19_2\" x=\"47.6819\" y=\"28.497\" width=\"171.215\" height=\"72.54\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"6\"/>\n<feGaussianBlur stdDeviation=\"5.4\"/>\n<feComposite in2=\"hardAlpha\" operator=\"out\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"BackgroundImageFix\" result=\"effect1_dropShadow_19_2\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"effect1_dropShadow_19_2\" result=\"shape\"/>\n</filter>\n<filter id=\"filter6_d_19_2\" x=\"30.6927\" y=\"89.6149\" width=\"201.217\" height=\"80.702\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"6\"/>\n<feGaussianBlur stdDeviation=\"5.4\"/>\n<feComposite in2=\"hardAlpha\" operator=\"out\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"BackgroundImageFix\" result=\"effect1_dropShadow_19_2\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"effect1_dropShadow_19_2\" result=\"shape\"/>\n</filter>\n<filter id=\"filter7_d_19_2\" x=\"53.1941\" y=\"168.376\" width=\"161.959\" height=\"52.2346\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"6\"/>\n<feGaussianBlur stdDeviation=\"5.4\"/>\n<feComposite in2=\"hardAlpha\" operator=\"out\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"BackgroundImageFix\" result=\"effect1_dropShadow_19_2\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"effect1_dropShadow_19_2\" result=\"shape\"/>\n</filter>\n<filter id=\"filter8_i_19_2\" x=\"57.9238\" y=\"26.791\" width=\"149.615\" height=\"58.94\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"8\"/>\n<feGaussianBlur stdDeviation=\"5\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter9_i_19_2\" x=\"41.4927\" y=\"88.6214\" width=\"179.617\" height=\"67.102\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"8\"/>\n<feGaussianBlur stdDeviation=\"5\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n<filter id=\"filter10_i_19_2\" x=\"63.9941\" y=\"167.338\" width=\"140.359\" height=\"38.6346\" filterUnits=\"userSpaceOnUse\" color-interpolation-filters=\"sRGB\">\n<feFlood flood-opacity=\"0\" result=\"BackgroundImageFix\"/>\n<feBlend mode=\"normal\" in=\"SourceGraphic\" in2=\"BackgroundImageFix\" result=\"shape\"/>\n<feColorMatrix in=\"SourceAlpha\" type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0\" result=\"hardAlpha\"/>\n<feOffset dy=\"8\"/>\n<feGaussianBlur stdDeviation=\"5\"/>\n<feComposite in2=\"hardAlpha\" operator=\"arithmetic\" k2=\"-1\" k3=\"1\"/>\n<feColorMatrix type=\"matrix\" values=\"0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0\"/>\n<feBlend mode=\"normal\" in2=\"shape\" result=\"effect1_innerShadow_19_2\"/>\n</filter>\n</defs>\n</svg>";
+const DATEIEN = { taucherin: "taucherin.svg", fisch: "schleimfisch.svg", auster: "auster.svg", schnecke: "schnecke.svg", ls: "LS.svg" };
+const IMG = {};
+for (const [name, datei] of Object.entries(DATEIEN)) {
+  const img = new Image();
+  img.onerror = () => {
+    img.onerror = null;
+    if (!FALLBACK[name]) { console.warn(`${datei} nicht gefunden unter "${CONFIG.ASSET_PATH}" – Panels werden gezeichnet.`); return; }
+    console.warn(`${datei} nicht gefunden unter "${CONFIG.ASSET_PATH}" – nutze eingebettete Version.`);
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(FALLBACK[name]);
+  };
+  img.src = CONFIG.ASSET_PATH + datei;
+  IMG[name] = img;
+}
+const bereit = (img) => img && img.complete && img.naturalWidth > 0;
+// Living-Seawall-Panel (LS.svg) einmal vorrendern – die Filter im SVG sind sonst pro Frame teuer
+let LS_BILD = null;
+function lsBereit() {
+  if (LS_BILD) return true;
+  if (!bereit(IMG.ls)) return false;
+  const c = document.createElement("canvas"); c.width = 520; c.height = 476;
+  c.getContext("2d").drawImage(IMG.ls, 0, 0, 520, 476);
+  LS_BILD = c; return true;
+}
+
+// ---------------------------------------------------------------------
+//  Tiere und Panels
+// ---------------------------------------------------------------------
+const TIERE = {
+  fisch: { name: "Austernschleimfisch", kurz: "Fisch", img: "fisch", x: 760, y: 690, s: 0.75, panel: "hoehle", bed: "versteck", bedText: "Versteck",
+    verlust: "Der Schleimfisch hat die Wand verlassen.", gewinn: "Der Schleimfisch ist im Panel sicher." },
+  schnecke: { name: "Gestreifte Kreiselschnecke", kurz: "Schnecke", img: "schnecke", x: 520, y: 300, s: 0.7, panel: "mulde", bed: "feucht", bedText: "Feuchtigkeit",
+    verlust: "Die Schnecke zieht sich zurück – zu heiß, zu trocken.", gewinn: "Die Schnecke bleibt im Tümpel kühl und feucht." },
+  auster: { name: "Sydney-Felsenauster", kurz: "Auster", img: "auster", x: 1000, y: 470, s: 0.7, panel: "rillen", bed: "rau", bedText: "Raue Fläche",
+    verlust: "Glatter Beton ist für lange Haltbarkeit gebaut. Der Kleber der Larven verbindet sich nicht – sie rutschen ab.", gewinn: "Auf den Rillen hält der Kleber – die Larven setzen sich fest." },
+};
+const TIER_IDS = ["fisch", "schnecke", "auster"];
+const PANEL_TYPEN = [
+  { id: "hoehle", name: "Höhlen-Panel", kurz: "HÖHLE", bed: "versteck" },
+  { id: "mulde", name: "Tümpel-Panel", kurz: "TÜMPEL", bed: "feucht" },
+  { id: "rillen", name: "Rillen-Panel", kurz: "RILLEN", bed: "rau" },
+];
+const WAND_TEXT = { fisch: "glatt – kein Versteck", schnecke: "trocken & heiß", auster: "glatt – Kleber hält nicht" };
+const BED_TEXT = { versteck: "Versteck", feucht: "Feuchtigkeit", rau: "Raue Fläche" };
+
+// ---------------------------------------------------------------------
+//  Spielzustand
+// ---------------------------------------------------------------------
+let zeit = 0, phase = "attract", phaseT = 0;
+const S = {};
+function zustandNeu() {
+  for (const k of Object.keys(S)) delete S[k];
+  Object.assign(S, {
+    licht: false, bereitLicht: false, lichtAn: -99,
+    gefunden: {}, reagiert: {}, reakt: {}, gespielt: {}, platziert: {}, geprueft: {},
+    ohneFund: 0, pingT: -99, weiter: null, weiterAb: 0, feldT: -1,
+    rb: { intro: false },
+    kiste: null, unt: [0, 0, 0], untFertig: false,
+    aktiv: null, feedback: null, falsch: null, montageFertig: -1,
+    zukunftFertig: -1, schritt: 0, schrittT: 0, fazit: null, zoom: null, camX: 0, meldung: null,
+  });
+  TIER_IDS.forEach((id) => { S.gefunden[id] = false; S.reagiert[id] = false; S.reakt[id] = -99; S.gespielt[id] = false; S.platziert[id] = false; S.geprueft[id] = false; });
+}
+zustandNeu();
+
+let weltEra = 0;            // Zeit der echten Welt: 0 = heute, 1 = zwei Jahre nach den Panels
+let imGeraet = false;       // true, während die Welt in den Scanner-Bildschirm gezeichnet wird
+const regler = { wert: 0, ziel: 0, min: 0, max: 0, frei: false, modus: "zeit", leuchten: false, skala: "rueck" };
+const taucherin = { x: 220, y: 150, vx: 0, vy: 0, blick: 1, sichtbar: false, gesteuert: false, dreh: 0, skala: 0.55 };
+const ptr = { x: W / 2, y: H / 2, down: false };
+const halten = { t: 0, key: null, gesperrt: false, ziel: null, dauer: 1 };
+let sz = null;
+let fade = { a: 0, ziel: 0, dann: null, halten: 0 };
+let letzteEingabe = 0;
+const SC = { g: 0, ziel: 0, wackeln: 0, sichtbar: false };   // Scanner: g = 0 klein in der Ecke, 1 groß
+const kam = { z: 1, cx: W / 2, cy: H / 2 };
+const REGLER_POS = { x: 0, y: 0, r: 0 };
+let reglerZieht = false;
+
+// ---------------------------------------------------------------------
+//  Eingabe
+// ---------------------------------------------------------------------
+function zuStage(e) { const r = stage.getBoundingClientRect(); return { x: (e.clientX - r.left) / skala, y: (e.clientY - r.top) / skala }; }
+addEventListener("pointermove", (e) => { const p = zuStage(e); ptr.x = p.x; ptr.y = p.y; letzteEingabe = zeit; if (reglerZieht) reglerDrehen(); });
+cv.addEventListener("pointerdown", (e) => {
+  const p = zuStage(e); ptr.x = p.x; ptr.y = p.y; ptr.down = true; letzteEingabe = zeit;
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  if (regler.frei && REGLER_POS.r > 0 && Math.hypot(ptr.x - REGLER_POS.x, ptr.y - REGLER_POS.y) < REGLER_POS.r * 1.6) { reglerZieht = true; reglerDrehen(); }
+});
+const loslassen = () => { reglerZieht = false; ptr.down = false; halten.gesperrt = false; halten.t = 0; halten.key = null; };
+cv.addEventListener("pointerup", loslassen);
+cv.addEventListener("pointercancel", loslassen);
+stage.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  if (!regler.frei) return;
+  regler.ziel = clamp(regler.ziel + e.deltaY * (regler.modus === "auswahl" ? 0.004 : 0.0011), regler.min, regler.max);
+  letzteEingabe = zeit;
+}, { passive: false });
+addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (k === "arrowleft" || k === "arrowright") {
+    e.preventDefault();
+    if (regler.frei) {
+      const schritt = regler.modus === "auswahl" ? 1 : 0.08;
+      regler.ziel = clamp((regler.modus === "auswahl" ? Math.round(regler.ziel) : regler.ziel) + (k === "arrowright" ? schritt : -schritt), regler.min, regler.max);
+    }
+  }
+  if (k === " " || k === "enter") { e.preventDefault(); letzteEingabe = zeit; if (funk.aktuell) funkWeiter(); else if (S.weiter) weiterAusloesen(); }
+  if (k === "h") $("hilfe").classList.toggle("offen");
+  if (k === "r") neustart(false);
+  const spr = { "1": "boot", "2": "suche", "3": "archiv", "4": "rueckblick", "5": "lieferung", "6": "zukunft", "7": "pruefen", "8": "ergebnis" }[k];
+  if (spr) springe(spr);
+});
+function reglerDrehen() {
+  let w = Math.atan2(ptr.x - REGLER_POS.x, -(ptr.y - REGLER_POS.y)) * 180 / Math.PI;
+  const max = regler.modus === "auswahl" ? 60 : 135;
+  w = clamp(w, -max, max);
+  regler.ziel = clamp(w / max, regler.min, regler.max);
+}
+function reglerSetzen(modus, min, max, frei, skalaName) {
+  regler.modus = modus; regler.min = min; regler.max = max; regler.frei = frei; regler.leuchten = frei;
+  if (skalaName) regler.skala = skalaName;
+  regler.ziel = clamp(regler.ziel, min, max);
+}
+const auswahlIndex = () => clamp(Math.round(regler.wert + 1), 0, 2);
+
+// ---------------------------------------------------------------------
+//  Funk (Untertitel, kurz)
+// ---------------------------------------------------------------------
+const funk = { schlange: [], aktuell: null, t: 0 };
+let lauf = 0;
+function sag(zeilen, dann) {
+  for (const [wer, text] of zeilen) funk.schlange.push({ wer, text });
+  if (dann) { const l = lauf; funk.schlange.push({ cb: () => { if (l === lauf) dann(); } }); }
+}
+function funkLeeren() { funk.schlange = []; funk.aktuell = null; lauf++; }
+function funkUpdate(dt) {
+  if (!funk.aktuell) {
+    while (funk.schlange.length && funk.schlange[0].cb) funk.schlange.shift().cb();
+    const n = funk.schlange.shift();
+    if (!n) { $("funkbox").classList.add("leer"); return; }
+    funk.aktuell = n; funk.t = 0;
+    $("funkbox").classList.remove("leer");
+    const wer = $("funkwer");
+    wer.textContent = n.wer === "T" ? "TAUCHERIN" : "FORSCHUNGSBOOT";
+    wer.classList.toggle("taucherin", n.wer === "T");
+  }
+  const n = funk.aktuell;
+  funk.t += dt;
+  $("funktext").textContent = n.text.slice(0, Math.floor(funk.t * 48));
+  $("funkpfeil").classList.toggle("an", funkFertig());
+}
+// Funk läuft nicht von selbst weiter: erst ein Druck schreibt den Satz fertig, der nächste geht weiter
+const funkFertig = () => !!funk.aktuell && funk.t * 48 >= funk.aktuell.text.length;
+function funkWeiter() { if (!funk.aktuell) return; if (!funkFertig()) funk.t = funk.aktuell.text.length / 48 + 0.01; else { funk.aktuell = null; $("funkpfeil").classList.remove("an"); } }
+
+// ---------------------------------------------------------------------
+//  Aufgabe oben
+// ---------------------------------------------------------------------
+let letzteAufgabe = "";
+function aufgabe(text, label = "AUFGABE") {
+  if (text && text !== letzteAufgabe) { const el = $("aufgabe"); el.classList.remove("neu"); void el.offsetWidth; el.classList.add("neu"); }
+  letzteAufgabe = text || "";
+  $("aufgabelabel").textContent = label;
+  $("aufgabetext").textContent = text || "";
+  $("aufgabe").classList.toggle("leer", !text);
+}
+
+// ---------------------------------------------------------------------
+//  Übergänge
+// ---------------------------------------------------------------------
+function blende(dann, halten = 0, text = "") { fade.ziel = 1; fade.dann = dann; fade.halten = halten; $("fadetext").textContent = text; }
+function fadeUpdate(dt) {
+  if (fade.ziel === 1 && fade.a >= 1) {
+    if (fade.dann) { const d = fade.dann; fade.dann = null; d(); }
+    fade.halten = (fade.halten || 0) - dt;
+    if (fade.halten <= 0) fade.ziel = 0;
+  } else fade.a += Math.sign(fade.ziel - fade.a) * Math.min(Math.abs(fade.ziel - fade.a), dt * 3.2);
+  if (fade.ziel === 0 && fade.a <= 0 && $("fadetext").textContent) $("fadetext").textContent = "";
+  $("fade").style.opacity = fade.a.toFixed(3);
+}
+// Langsamer Zoom auf ein Tier, dann Abblende in die Nahansicht
+function zoomZu(x, y, dann) { S.zoom = { x, y, t: 0, dann }; aufgabe(""); }
+function zoomUpdate(dt) {
+  if (!S.zoom) { kam.z = lerp(kam.z, 1, Math.min(1, dt * 4)); kam.cx = lerp(kam.cx, W / 2, Math.min(1, dt * 4)); kam.cy = lerp(kam.cy, H / 2, Math.min(1, dt * 4)); return; }
+  const z = S.zoom; z.t += dt;
+  const k = ease(clamp(z.t / 2, 0, 1));
+  kam.z = lerp(1, 2.6, k); kam.cx = lerp(W / 2, z.x, k); kam.cy = lerp(H / 2, z.y, k);
+  if (z.t >= 1.8 && z.dann) { const d = z.dann; z.dann = null; blende(() => { S.zoom = null; kam.z = 1; kam.cx = W / 2; kam.cy = H / 2; d(); }); }
+}
+function kameraAnwenden() { ctx.translate(W / 2, H / 2); ctx.scale(kam.z, kam.z); ctx.translate(-kam.cx, -kam.cy); }
+function rrPfad(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
+
+// ---------------------------------------------------------------------
+//  Vorgenerierte Formen
+// ---------------------------------------------------------------------
+const R = rng(7);
+const FELS = [];
+for (let y = 130; y < 920; y += 64) for (let x = -60; x < 1680; x += 84) {
+  const cx = x + R() * 50, cy = y + R() * 30, r = 46 + R() * 34, pts = [];
+  for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2 + R() * 0.4; pts.push([cx + Math.cos(a) * r * (0.7 + R() * 0.4), cy + Math.sin(a) * r * (0.6 + R() * 0.4)]); }
+  FELS.push({ pts, c: ["#B08A5A", "#C29A64", "#9E7A4E", "#A8845A", "#B9925F"][Math.floor(R() * 5)] });
+}
+const SPALTEN = [];
+for (let i = 0; i < 26; i++) { const x = R() * 1600, y = 160 + R() * 700, pts = [[x, y]]; for (let k = 0; k < 4; k++) pts.push([pts[k][0] + (R() - 0.3) * 60, pts[k][1] + 10 + R() * 30]); SPALTEN.push(pts); }
+const TUEMPEL = []; for (let i = 0; i < 7; i++) TUEMPEL.push({ x: 80 + R() * 1440, y: 190 + R() * 160, rx: 30 + R() * 30, ry: 10 + R() * 8 });
+const AUSTERNRIFF = []; for (let i = 0; i < 140; i++) AUSTERNRIFF.push({ x: R() * 1600, y: 380 + R() * 260, r: 6 + R() * 9, a: R() * 3 });
+const TANG = []; for (let i = 0; i < 26; i++) TANG.push({ x: R() * 1600, y: 880, h: 90 + R() * 160, p: R() * 6 });
+const SPRENKEL = []; for (let i = 0; i < 260; i++) SPRENKEL.push({ x: R() * 1600, y: 150 + R() * 750, r: 1 + R() * 2.5, a: 0.15 + R() * 0.25 });
+const ALGEN = []; for (let i = 0; i < 70; i++) ALGEN.push({ x: R() * 1600, y: 170 + R() * 680, r: 14 + R() * 34, k: R(), c: ["#5E8A55", "#7FA35A", "#4F7A4A", "#8B9A4E"][Math.floor(R() * 4)] });
+const SEEPOCKEN = []; for (let i = 0; i < 140; i++) SEEPOCKEN.push({ x: R() * 1600, y: 160 + R() * 450, k: R() });
+const SCHWARM = []; for (let i = 0; i < 16; i++) SCHWARM.push({ x: R() * 1600, y: 220 + R() * 560, v: 30 + R() * 40, p: R() * 6, s: 0.7 + R() * 0.6, c: ["#D9B85C", "#9FC3C9", "#E8913A", "#C7D3A0"][Math.floor(R() * 4)] });
+const SANDFLECK = []; for (let i = 0; i < 40; i++) SANDFLECK.push({ x: R() * 1600, y: 160 + R() * 700, r: 8 + R() * 18, gruen: R() < 0.6 });
+const BLASEN = [];
+
+// Dichtes Panelfeld rund um die drei Tierstellen (wie an den echten Living Seawalls)
+const PANEL_FELD = [];
+(() => {
+  const RF = rng(21);
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 13; c++) {
+    const x = 60 + c * 124 + (r % 2) * 62, y = 262 + r * 108;
+    if (x > 1560) continue;
+    if (Object.values(TIERE).some((t) => Math.hypot(t.x - x, t.y - y) < 118)) continue;
+    PANEL_FELD.push({ x: x + (RF() - 0.5) * 8, y: y + (RF() - 0.5) * 8, typ: PANEL_TYPEN[Math.floor(RF() * 3)].id });
+  }
+  PANEL_FELD.forEach((p, i) => (p.d = 0.15 + i * 0.06 + (p.x / 1600) * 0.4));
+})();
+const FELD_DAUER = 0.15 + PANEL_FELD.length * 0.06 + 0.8;
+
+// ---------------------------------------------------------------------
+//  Zeichnen – Grundformen
+// ---------------------------------------------------------------------
+function bild(name, x, y, s, opt = {}) {
+  const img = IMG[name];
+  if (!bereit(img)) return;
+  ctx.save();
+  ctx.translate(x, y);
+  if (opt.rot) ctx.rotate(opt.rot);
+  ctx.scale((opt.flip ? -1 : 1) * s * (opt.sx || 1), s * (opt.sy || 1));
+  if (opt.alpha !== undefined) ctx.globalAlpha *= opt.alpha;
+  if (opt.filter) ctx.filter = opt.filter;
+  if (opt.glow) { ctx.shadowColor = opt.glow; ctx.shadowBlur = 14 / s; }
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  ctx.restore();
+}
+function hexPfad(cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const a = rad(60 * i); const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * 0.9; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.closePath();
+}
+// Mulden im LS-Panel (Koordinaten im 260×238-Raster der LS.svg)
+const LS_MULDEN = [[62, 32, 144, 44], [48, 94, 170, 50], [70, 168, 132, 32]];
+function lsPanelZeichnen(typ, cx, cy, r, bewuchs, opt = {}) {
+  const s = (2 * r) / 250;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-130, -119);
+  if (opt.alpha !== undefined) ctx.globalAlpha *= opt.alpha;
+  ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.beginPath(); ctx.ellipse(136, 128, 124, 112, 0, 0, Math.PI * 2); ctx.fill();
+  if (opt.dunkel) ctx.filter = "brightness(0.55)";
+  ctx.drawImage(LS_BILD, 0, 0, 260, 238);
+  ctx.filter = "none";
+  const rr = (x, y, w, h, k) => { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, k) : ctx.rect(x, y, w, h); };
+  const spalte = () => { ctx.fillStyle = "#16242A"; ctx.beginPath(); ctx.ellipse(134, 56, 56, 15, 0, 0, Math.PI * 2); ctx.fill(); };
+  const wasser = (i) => { const [x, y, w, h] = LS_MULDEN[i]; rr(x + 4, y + h * 0.35, w - 8, h * 0.6, 14); ctx.fillStyle = "rgba(62,138,154,.9)"; ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.45)"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x + 20, y + h * 0.5); ctx.lineTo(x + w * 0.45, y + h * 0.5); ctx.stroke(); };
+  const rillen = (i) => { const [x, y, w, h] = LS_MULDEN[i]; ctx.strokeStyle = "#5F6B6B"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    for (let k = 0; k < 3; k++) { const yy = y + 8 + k * (h - 12) / 2; ctx.beginPath(); for (let j = 0; j <= 10; j++) { const xx = x + 10 + j * (w - 20) / 10; const y2 = yy + (j % 2 ? 4 : -4); j ? ctx.lineTo(xx, y2) : ctx.moveTo(xx, y2); } ctx.stroke(); } };
+  if (typ === "mulde") { [0, 1, 2].forEach(wasser); }
+  else if (typ === "hoehle") {
+    ctx.fillStyle = "#16242A"; ctx.beginPath(); ctx.ellipse(132, 124, 62, 20, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(22,36,42,.75)";
+    ctx.beginPath(); ctx.ellipse(134, 60, 46, 12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(136, 188, 40, 10, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (typ === "rillen") { [0, 1, 2].forEach(rillen); }
+  else if (typ === "mix") { spalte(); wasser(1); rillen(2); }
+  if (bewuchs > 0) {
+    ctx.globalAlpha *= bewuchs;
+    for (let i = 0; i < 16; i++) { const a = i * 2.17, d = 0.35 + ((i * 37) % 10) / 16; ctx.fillStyle = i % 3 ? "#5E8A55" : "#7FA35A"; ctx.beginPath(); ctx.arc(130 + Math.cos(a) * 110 * d, 119 + Math.sin(a) * 100 * d, 9 + (i % 4) * 4, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = "#E3E0D6"; for (let i = 0; i < 22; i++) { const a = i * 1.37, d = 0.3 + ((i * 53) % 10) / 14; ctx.beginPath(); ctx.arc(130 + Math.cos(a) * 112 * d, 119 + Math.sin(a) * 102 * d, 3.5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.restore();
+}
+// Ersatzform, falls LS.svg noch nicht geladen ist
+function panelZeichnen(typ, cx, cy, r, bewuchs = 0, opt = {}) {
+  if (lsBereit()) { lsPanelZeichnen(typ, cx, cy, r, bewuchs, opt); return; }
+  ctx.save();
+  hexPfad(cx, cy, r); ctx.fillStyle = opt.dunkel ? "#5D6463" : "#A9B3B1"; ctx.fill();
+  ctx.strokeStyle = "#7E8A8A"; ctx.lineWidth = Math.max(1.5, r * 0.04); ctx.stroke();
+  ctx.fillStyle = "#1C2A2E";
+  if (typ === "hoehle" || typ === "mix") { ctx.beginPath(); ctx.ellipse(cx, cy - (typ === "mix" ? r * 0.5 : 0), r * 0.42, r * 0.18, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (typ === "mulde" || typ === "mix") { ctx.fillStyle = "#3E8A9A"; ctx.beginPath(); ctx.ellipse(cx, cy, r * 0.5, r * 0.2, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (typ === "rillen" || typ === "mix") { ctx.strokeStyle = "#6B7776"; ctx.lineWidth = 3; for (let i = 0; i < 3; i++) { ctx.beginPath(); for (let k = -5; k <= 5; k++) { const x = cx + k * r * 0.12, y = cy + r * (typ === "mix" ? 0.5 : -0.3 + i * 0.3) + (k % 2 ? 5 : -5); k === -5 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); } ctx.stroke(); if (typ === "mix") break; } }
+  ctx.restore();
+}
+function raubfisch(x, y, s, flip) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s);
+  ctx.fillStyle = "#24343A";
+  ctx.beginPath(); ctx.moveTo(-120, 0); ctx.quadraticCurveTo(-40, -58, 70, -30); ctx.quadraticCurveTo(120, -12, 130, 4);
+  ctx.quadraticCurveTo(110, 30, 60, 34); ctx.quadraticCurveTo(-40, 50, -120, 0); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-110, 0); ctx.lineTo(-170, -44); ctx.lineTo(-156, 0); ctx.lineTo(-170, 44); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-20, -40); ctx.lineTo(20, -78); ctx.lineTo(40, -34); ctx.fill();
+  ctx.fillStyle = "#3A4D54"; ctx.beginPath(); ctx.ellipse(10, 14, 80, 12, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#E8E2C8"; ctx.beginPath(); ctx.arc(92, -8, 7, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#0A1416"; ctx.beginPath(); ctx.arc(94, -8, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function kleinerFisch(x, y, s, c, flip) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(flip ? -s : s, s); ctx.fillStyle = c;
+  ctx.beginPath(); ctx.ellipse(0, 0, 14, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(-22, -6); ctx.lineTo(-22, 6); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+// Bedürfnis-Symbole: Versteck, Feuchtigkeit, raue Fläche (+ glatt / trocken als Gegenteil)
+function symbol(typ, x, y, s, farbe) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.strokeStyle = farbe; ctx.fillStyle = farbe; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  if (typ === "versteck") { ctx.beginPath(); ctx.moveTo(-30, 20); ctx.lineTo(-30, -4); ctx.quadraticCurveTo(-30, -30, 0, -30); ctx.quadraticCurveTo(30, -30, 30, -4); ctx.lineTo(30, 20); ctx.stroke();
+    ctx.globalAlpha *= 0.5; ctx.beginPath(); ctx.ellipse(0, 8, 16, 12, 0, 0, Math.PI * 2); ctx.fill(); }
+  else if (typ === "feucht") { ctx.beginPath(); ctx.moveTo(0, -32); ctx.bezierCurveTo(14, -12, 24, 0, 24, 10); ctx.arc(0, 10, 24, 0, Math.PI); ctx.bezierCurveTo(-24, 0, -14, -12, 0, -32); ctx.stroke(); }
+  else if (typ === "rau") { for (let i = 0; i < 3; i++) { ctx.beginPath(); for (let k = 0; k <= 6; k++) { const xx = -30 + k * 10, yy = -16 + i * 16 + (k % 2 ? 6 : -6); k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); } }
+  else if (typ === "glatt") { ctx.strokeRect(-28, -28, 56, 56); }
+  ctx.restore();
+}
+function haken(x, y, s, farbe) { ctx.save(); ctx.strokeStyle = farbe; ctx.lineWidth = 6 * s; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x - 12 * s, y); ctx.lineTo(x - 3 * s, y + 10 * s); ctx.lineTo(x + 14 * s, y - 10 * s); ctx.stroke(); ctx.restore(); }
+function kreuz(x, y, s, farbe) { ctx.save(); ctx.strokeStyle = farbe; ctx.lineWidth = 6 * s; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x - 11 * s, y - 11 * s); ctx.lineTo(x + 11 * s, y + 11 * s); ctx.moveTo(x + 11 * s, y - 11 * s); ctx.lineTo(x - 11 * s, y + 11 * s); ctx.stroke(); ctx.restore(); }
+function txt(s, x, y, size, farbe, align = "left", gewicht = 500, font = SANS) { ctx.font = `${gewicht} ${size}px ${font}`; ctx.fillStyle = farbe; ctx.textAlign = align; ctx.fillText(s, x, y); }
+function umbruch(s, x, y, maxW, size, lh, farbe, align = "left", gewicht = 500) {
+  ctx.font = `${gewicht} ${size}px ${SANS}`; ctx.fillStyle = farbe; ctx.textAlign = align;
+  const woerter = s.split(" "); let zeile = "", yy = y;
+  for (const w of woerter) { const t = zeile ? zeile + " " + w : w; if (ctx.measureText(t).width > maxW && zeile) { ctx.fillText(zeile, x, yy); zeile = w; yy += lh; } else zeile = t; }
+  if (zeile) ctx.fillText(zeile, x, yy);
+}
+function markierung(x, y, r, text, farbe = "#5FD3C6") {
+  ctx.save(); ctx.strokeStyle = farbe; ctx.lineWidth = 2.5; const l = 16;
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([dx, dy]) => {
+    ctx.beginPath(); ctx.moveTo(x + dx * r, y + dy * r - dy * l); ctx.lineTo(x + dx * r, y + dy * r); ctx.lineTo(x + dx * r - dx * l, y + dy * r); ctx.stroke();
+  });
+  if (text) { ctx.font = "500 14px " + MONO; ctx.fillStyle = farbe; ctx.textAlign = "center"; ctx.fillText(text, x, y - r - 10); }
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------------
+//  Die Mauer in allen Zeitebenen
+//  era −1 = 1788 Felsufer · −0.5 = 1844 Sandsteinmauer · 0 = heute Beton · +1 = zwei Jahre nach den Panels
+// ---------------------------------------------------------------------
+const WASSERLINIE = 124;
+let wasserY = WASSERLINIE, wasserZiel = WASSERLINIE;
+function bruecke(alpha) {
+  if (alpha <= 0) return;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.strokeStyle = "#7F939B"; ctx.fillStyle = "#7F939B"; ctx.lineWidth = 5;
+  ctx.fillRect(1000, 66, 30, WASSERLINIE - 66); ctx.fillRect(1440, 66, 30, WASSERLINIE - 66);
+  ctx.fillRect(1030, 92, 410, 7);
+  ctx.beginPath(); ctx.moveTo(1030, 92); ctx.quadraticCurveTo(1235, 6, 1440, 92); ctx.stroke();
+  ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(1050, 92); ctx.quadraticCurveTo(1235, 30, 1420, 92); ctx.stroke();
+  ctx.lineWidth = 1.5; for (let x = 1060; x < 1420; x += 26) { const t = (x - 1030) / 410, y = 92 - 4 * t * (1 - t) * 86 * 0.98; ctx.beginPath(); ctx.moveTo(x, 92); ctx.lineTo(x, Math.max(y, 20)); ctx.stroke(); }
+  ctx.restore();
+}
+function eraGewichte(era) {
+  const fels = clamp((-era - 0.62) / 0.3, 0, 1);
+  const sand = era < 0 ? clamp(1 - Math.abs(era + 0.5) / 0.36, 0, 1) * (1 - fels) : 0;
+  const stadt = clamp(1 + era / 0.25, 0, 1);
+  const leben = clamp(era, 0, 1);
+  return { fels, sand, stadt, leben };
+}
+function mauerFugen(farbe, oben) {
+  ctx.strokeStyle = farbe; ctx.lineWidth = 3; ctx.beginPath();
+  for (let r = 0; r < 4; r++) { const y = oben + 48 + r * 180; ctx.moveTo(0, y); ctx.lineTo(W, y); for (let x = (r % 2) * 200; x < W; x += 400) { ctx.moveTo(x, y); ctx.lineTo(x, y + 180); } }
+  ctx.stroke();
+}
+function welt(era, ohneBruecke) {
+  const g = eraGewichte(era);
+  // Himmel + Land über Wasser
+  ctx.fillStyle = "#CFE0E6"; ctx.fillRect(0, 0, W, WASSERLINIE);
+  if (g.stadt > 0) {
+    ctx.globalAlpha = g.stadt; ctx.fillStyle = "#8FA3AB";
+    [[60, 40, 70], [160, 18, 54], [250, 52, 80], [360, 30, 46], [440, 8, 60], [540, 44, 70], [640, 26, 52], [1040, 34, 66], [1130, 12, 48], [1210, 46, 80], [1320, 24, 56], [1420, 40, 70], [1500, 16, 62]]
+      .forEach(([x, y, w]) => { if (ohneBruecke || x < 960 || x > 1490) ctx.fillRect(x, y + 20, w, WASSERLINIE - y); });
+    if (!ohneBruecke) bruecke(1);
+    ctx.globalAlpha = 1;
+  }
+  if (g.sand > 0) { // koloniale Sandsteinbauten
+    ctx.globalAlpha = g.sand; ctx.fillStyle = "#7F9668"; ctx.fillRect(0, 86, W, WASSERLINIE - 86);
+    ctx.fillStyle = "#C9A46E";
+    [[120, 70, 90], [300, 80, 60], [520, 66, 110], [760, 78, 70], [1100, 72, 90], [1350, 82, 60]].forEach(([x, y, w]) => { ctx.fillRect(x, y, w, WASSERLINIE - y); ctx.fillStyle = "#8C5A3C"; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + w / 2, y - 18); ctx.lineTo(x + w + 6, y); ctx.fill(); ctx.fillStyle = "#C9A46E"; });
+    ctx.globalAlpha = 1;
+  }
+  if (g.fels > 0) { // Hügel und Mangroven
+    ctx.globalAlpha = g.fels;
+    ctx.fillStyle = "#7F9668"; ctx.beginPath(); ctx.moveTo(0, 90); ctx.quadraticCurveTo(300, 40, 620, 76); ctx.quadraticCurveTo(1000, 30, 1600, 70); ctx.lineTo(1600, WASSERLINIE); ctx.lineTo(0, WASSERLINIE); ctx.fill();
+    ctx.fillStyle = "#3E5F35"; for (let x = 20; x < W; x += 70) { ctx.beginPath(); ctx.ellipse(x, 108, 34, 18, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  // Wasseroberfläche
+  ctx.fillStyle = "#2A6F7D"; ctx.fillRect(0, WASSERLINIE, W, H - WASSERLINIE);
+  ctx.strokeStyle = "rgba(160,215,220,.6)"; ctx.lineWidth = 3; ctx.beginPath();
+  for (let x = 0; x <= W; x += 20) { const y = WASSERLINIE + Math.sin(x * 0.02 + zeit * 1.5) * 3; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+  ctx.stroke();
+
+  // Betonmauer (heute)
+  ctx.fillStyle = "#6C7A7E"; ctx.fillRect(0, WASSERLINIE + 14, W, H);
+  ctx.fillStyle = "#5E6B6F"; ctx.fillRect(0, WASSERLINIE + 14, W, 34);
+  mauerFugen("#5B686C", WASSERLINIE);
+  SPRENKEL.forEach((p) => { ctx.fillStyle = `rgba(40,55,60,${p.a})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill(); });
+
+  // 1844: Sandsteinmauer – rau, mit Fugen, etwas Bewuchs
+  if (g.sand > 0) {
+    ctx.globalAlpha = g.sand;
+    ctx.fillStyle = "#B49564"; ctx.fillRect(0, WASSERLINIE + 10, W, H);
+    for (let r = 0; r < 13; r++) {
+      const y = WASSERLINIE + 10 + r * 62;
+      for (let x = -((r % 2) * 80); x < W; x += 160) {
+        ctx.fillStyle = ["#B99A68", "#A88A5A", "#C2A272", "#AE905F"][(r * 7 + Math.floor(x / 160)) & 3];
+        ctx.fillRect(x + 3, y + 3, 154, 56);
+      }
+    }
+    ctx.fillStyle = "rgba(70,55,35,.35)"; SPRENKEL.forEach((p) => { ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 1.4, 0, Math.PI * 2); ctx.fill(); });
+    SANDFLECK.forEach((f) => { ctx.fillStyle = f.gruen ? "rgba(94,138,85,.75)" : "rgba(227,224,214,.8)"; ctx.beginPath(); ctx.arc(f.x, f.y, f.gruen ? f.r : f.r * 0.25, 0, Math.PI * 2); ctx.fill(); });
+    ctx.globalAlpha = 1;
+  }
+  // 1788: natürliches Felsufer mit Austernriffen
+  if (g.fels > 0) {
+    ctx.globalAlpha = g.fels;
+    ctx.fillStyle = "#8F7048"; ctx.fillRect(0, WASSERLINIE + 10, W, H);
+    FELS.forEach((f) => { ctx.fillStyle = f.c; ctx.beginPath(); f.pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); });
+    ctx.strokeStyle = "#4E3A26"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    SPALTEN.forEach((s) => { ctx.beginPath(); s.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+    TUEMPEL.forEach((t) => { ctx.fillStyle = "#3E8A9A"; ctx.beginPath(); ctx.ellipse(t.x, t.y, t.rx, t.ry, 0, 0, Math.PI * 2); ctx.fill(); });
+    AUSTERNRIFF.forEach((o) => { ctx.fillStyle = "#8F8A93"; ctx.strokeStyle = "#6E5F74"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.6, o.a, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    // Die Plätze der drei Tiere: Spalte, Tümpel, raue Fläche
+    ctx.fillStyle = "#2A1E14"; ctx.beginPath(); ctx.ellipse(TIERE.fisch.x, TIERE.fisch.y + 6, 92, 28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#3E8A9A"; ctx.beginPath(); ctx.ellipse(TIERE.schnecke.x, TIERE.schnecke.y + 26, 78, 24, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#6B7F3A"; ctx.lineWidth = 4;
+    TANG.forEach((t) => { ctx.beginPath(); ctx.moveTo(t.x, t.y); for (let k = 1; k <= 6; k++) ctx.lineTo(t.x + Math.sin(zeit * 1.2 + t.p + k) * 10, t.y - (t.h * k) / 6); ctx.stroke(); });
+    ctx.globalAlpha = 1;
+  }
+
+  // Ebbe: oberer Teil der Mauer liegt trocken
+  if (!imGeraet && wasserY > WASSERLINIE + 2) {
+    const wy = wasserY;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, WASSERLINIE, W, wy - WASSERLINIE); ctx.clip();
+    ctx.fillStyle = "#8B989C"; ctx.fillRect(0, WASSERLINIE, W, wy - WASSERLINIE);
+    mauerFugen("#7A878B", WASSERLINIE);
+    SPRENKEL.forEach((q) => { ctx.fillStyle = `rgba(60,72,76,${q.a})`; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); });
+    const gr = ctx.createLinearGradient(0, wy - 90, 0, wy); gr.addColorStop(0, "rgba(40,62,68,0)"); gr.addColorStop(1, "rgba(40,62,68,.45)");
+    ctx.fillStyle = gr; ctx.fillRect(0, wy - 90, W, 90);
+    ctx.restore();
+  }
+
+  // Panels an der Wand
+  if (S.feldT > 0) for (const p of PANEL_FELD) {
+    const k = clamp((zeit - S.feldT - p.d) / 0.35, 0, 1); if (k <= 0) continue;
+    if (k < 1) { ctx.save(); ctx.globalAlpha *= k; panelZeichnen(p.typ, p.x, p.y - (1 - k) * 16, 58, g.leben); ctx.restore(); }
+    else panelZeichnen(p.typ, p.x, p.y, 58, g.leben);
+  }
+  for (const id of TIER_IDS) if (S.platziert[id]) { const t = TIERE[id]; panelZeichnen(t.panel, t.x, t.y, 70, g.leben); }
+
+  // Bewuchs nach den Panels
+  if (g.leben > 0) {
+    ALGEN.forEach((a) => { if (a.k > g.leben) return; ctx.globalAlpha = 0.75 * clamp((g.leben - a.k) * 4, 0, 1); ctx.fillStyle = a.c; ctx.beginPath(); ctx.arc(a.x, a.y, a.r * 0.6, 0, Math.PI * 2); ctx.fill(); });
+    SEEPOCKEN.forEach((b) => { if (b.k > g.leben) return; ctx.globalAlpha = 0.8; ctx.fillStyle = "#E3E0D6"; ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill(); });
+    ctx.globalAlpha = 1;
+  }
+
+  // Unterwasser-Tönung + Lichtstrahlen
+  const oben = imGeraet ? WASSERLINIE : wasserY;
+  ctx.fillStyle = "rgba(20,70,85,.28)"; ctx.fillRect(0, oben, W, H);
+  ctx.fillStyle = "rgba(255,255,255,.035)";
+  [[220, 140], [900, 120], [1300, 100]].forEach(([x, w]) => { ctx.beginPath(); ctx.moveTo(x, oben); ctx.lineTo(x + w, oben); ctx.lineTo(x + w + 260, H); ctx.lineTo(x + 180, H); ctx.fill(); });
+  if (oben > WASSERLINIE + 2) {
+    ctx.strokeStyle = "rgba(160,215,220,.75)"; ctx.lineWidth = 3; ctx.beginPath();
+    for (let x = 0; x <= W; x += 20) { const y = oben + Math.sin(x * 0.02 + zeit * 1.5) * 4; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+  }
+  // Fischschwarm – Menge folgt der Artenvielfalt der Zeitebene
+  const anteil = era < 0 ? lerp(0.15, 1, clamp(-era * 1.1, 0, 1)) : lerp(0.15, 0.75, g.leben);
+  SCHWARM.forEach((f, i) => {
+    if (i / SCHWARM.length > anteil) return;
+    const x = ((f.x + zeit * f.v) % 1800) - 100, y = f.y + Math.sin(zeit + f.p) * 12;
+    if (y < oben + 20) return;
+    kleinerFisch(x, y, f.s, f.c, false);
+  });
+}
+
+// ---------------------------------------------------------------------
+//  Tiere an der Wand
+// ---------------------------------------------------------------------
+function reaktion(id) { const p = (zeit - S.reakt[id]) / 1.6; return p >= 0 && p < 1 ? Math.sin(p * Math.PI) : 0; }
+function tierPos(id, era = weltEra) {
+  const t = TIERE[id], r = reaktion(id);
+  if (era < -0.6) { // 1788: jedes Tier an seinem Platz
+    if (id === "fisch") return { x: t.x + Math.sin(zeit * 0.8) * 30, y: t.y, flip: Math.cos(zeit * 0.8) < 0 };
+    return { x: t.x, y: t.y, flip: false };
+  }
+  if (era >= 0.5) {
+    if (id === "fisch") return { x: t.x + Math.sin(zeit * 0.7) * 90, y: t.y - 10 + Math.sin(zeit * 1.3) * 16, flip: Math.cos(zeit * 0.7) < 0 };
+    return { x: t.x, y: t.y - (id === "schnecke" ? 6 : 0), flip: false };
+  }
+  if (id === "fisch") { const flip = Math.cos(zeit * 0.55) < 0; return { x: t.x + Math.sin(zeit * 0.55) * 130 + r * 160 * (flip ? 1 : -1), y: t.y + Math.sin(zeit * 1.1) * 28 - r * 30, flip }; }
+  if (id === "schnecke") return { x: t.x + (r > 0 ? 0 : Math.sin(zeit * 0.2) * 40), y: t.y + Math.sin(zeit * 0.13) * 6, flip: Math.cos(zeit * 0.2) < 0 };
+  return { x: t.x, y: t.y, flip: false };
+}
+const suchPhase = () => phase === "ankunft" || phase === "suche";
+function sichtbarkeit(id) {
+  if (imGeraet || !suchPhase() || S.gefunden[id]) return 1;
+  if (!S.licht) return 0;
+  const q = tierPos(id), d = Math.hypot(ptr.x - q.x, ptr.y - q.y);
+  return clamp(1 - (d - 90) / 120, 0, 1);
+}
+function tiereAnDerWand(era = weltEra) {
+  if (era > -0.6 && era < -0.1) return;            // Bauzeit / Sandstein: Tiere nicht im Fokus
+  const alt = era <= -0.6;
+  TIER_IDS.forEach((id) => {
+    const t = TIERE[id], q = tierPos(id, era);
+    let alpha = alt ? clamp((-era - 0.6) / 0.3, 0, 1) : sichtbarkeit(id);
+    if (alpha <= 0) return;
+    const r = alt ? 0 : reaktion(id);
+    if (era >= 0.5) {
+      if (id === "fisch") bild("fisch", q.x, q.y, t.s, { flip: q.flip, alpha });
+      else if (id === "schnecke") bild("schnecke", q.x, q.y, t.s, { alpha });
+      else { bild("auster", q.x, q.y, t.s * (1 + Math.sin(zeit * 1.6) * 0.03), { alpha }); for (let i = 0; i < 7; i++) bild("auster", q.x - 50 + (i % 4) * 34, q.y - 48 + Math.floor(i / 4) * 96, 0.24, { alpha }); }
+      return;
+    }
+    if (id === "fisch") {
+      if (!alt && S.gespielt.fisch) return;            // hat die Wand verlassen
+      bild("fisch", q.x, q.y, t.s, { flip: q.flip, alpha });
+    } else if (id === "schnecke") {
+      const grau = !alt && S.gespielt.schnecke;
+      bild("schnecke", q.x, q.y + r * 8, t.s * (1 - r * 0.18) * (grau ? 0.88 : 1), { flip: q.flip, alpha, filter: grau ? "grayscale(.75) brightness(1.1)" : null });
+    } else {
+      const zu = !alt && S.gespielt.auster ? 0.82 : 1;
+      bild("auster", q.x, q.y, t.s * (1 + Math.sin(zeit * 1.6) * 0.03), { alpha, sy: (1 - r * 0.25) * zu });
+      if (alt) for (let i = 0; i < 9; i++) bild("auster", q.x - 70 + (i % 5) * 34, q.y - 56 + Math.floor(i / 5) * 110, 0.26, { alpha });
+    }
+  });
+}
+
+// ---------------------------------------------------------------------
+//  Taucherin
+// ---------------------------------------------------------------------
+const T_SKALA = 0.55;
+function taucherinUpdate(dt) {
+  if (!taucherin.sichtbar) return;
+  taucherin.x += taucherin.vx * dt; taucherin.y += taucherin.vy * dt;
+  if (Math.random() < dt * 1.6) BLASEN.push({ x: taucherin.x + taucherin.blick * 90, y: taucherin.y - 50, r: 2 + Math.random() * 3, v: 40 + Math.random() * 30 });
+}
+function taucherinZiel(x, y, dt, k = 1.6) { const T = taucherin; T.vx = lerp(T.vx, (x - T.x) * k, Math.min(1, dt * 2)); T.vy = lerp(T.vy, (y - T.y) * k, Math.min(1, dt * 2)); if (Math.abs(x - T.x) > 40) T.blick = x > T.x ? 1 : -1; }
+function hand() { return { x: taucherin.x + taucherin.blick * 162 * T_SKALA, y: taucherin.y + 77 * T_SKALA + Math.sin(zeit * 2) * 4 }; }
+function taucherinZeichnen(alpha = 1) {
+  if (!taucherin.sichtbar || alpha <= 0) return;
+  const neig = clamp(taucherin.vy / 400, -0.25, 0.25) * taucherin.blick;
+  const sk = taucherin.skala || T_SKALA;
+  // helle Kontur, damit sie sich vom Hintergrund abhebt
+  bild("taucherin", taucherin.x, taucherin.y + Math.sin(zeit * 2) * 4, sk, { rot: rad(24) * taucherin.blick + neig + (taucherin.dreh || 0), flip: taucherin.blick < 0, alpha, glow: "rgba(255,236,205,.95)" });
+  if (sk < 0.4) return;
+  const h = hand();
+  ctx.save(); ctx.translate(h.x, h.y); ctx.scale(taucherin.blick, 1);
+  ctx.fillStyle = "#2E3439"; ctx.fillRect(-4, -7, 26, 14);
+  ctx.fillStyle = "#4B555C"; ctx.fillRect(18, -9, 8, 18);
+  ctx.fillStyle = S.licht ? "#FFF2D0" : "#5FD3C6"; ctx.beginPath(); ctx.ellipse(27, 0, 2.5, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+function blasenZeichnen(dt) {
+  ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.5;
+  for (let i = BLASEN.length - 1; i >= 0; i--) {
+    const b = BLASEN[i]; b.y -= b.v * dt; b.x += Math.sin(zeit * 3 + i) * 0.4;
+    if (b.y < Math.max(WASSERLINIE, wasserY) + 4) { BLASEN.splice(i, 1); continue; }
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------
+//  Dunkelheit mit mehreren Lichtern (Lampe am Zeiger, eigenes Licht der Taucherin …)
+// ---------------------------------------------------------------------
+const dunkelCv = document.createElement("canvas"); dunkelCv.width = W; dunkelCv.height = H;
+const dctx = dunkelCv.getContext("2d");
+let lichtStaerke = 0;
+function dunkel(D, lichter) {
+  dctx.globalCompositeOperation = "source-over";
+  dctx.clearRect(0, 0, W, H);
+  dctx.fillStyle = `rgba(2,14,18,${D})`; dctx.fillRect(0, 0, W, H);
+  dctx.globalCompositeOperation = "destination-out";
+  for (const l of lichter) {
+    const g = dctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r);
+    g.addColorStop(0, `rgba(0,0,0,${l.k || 1})`); g.addColorStop(0.5, `rgba(0,0,0,${(l.k || 1) * 0.75})`); g.addColorStop(1, "rgba(0,0,0,0)");
+    dctx.fillStyle = g; dctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+  }
+  ctx.drawImage(dunkelCv, 0, 0);
+  // warmer Schein der Lampe
+  for (const l of lichter) if (l.warm) {
+    const g2 = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.r * 0.6);
+    g2.addColorStop(0, `rgba(255,244,214,${(0.09 + lichtStaerke * 0.08).toFixed(3)})`); g2.addColorStop(1, "rgba(255,244,214,0)");
+    ctx.fillStyle = g2; ctx.fillRect(l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+  }
+}
+function weltLichter() {
+  const L = [];
+  if (taucherin.sichtbar) { const p = weltZuSchirm(taucherin.x, taucherin.y); L.push({ x: p.x, y: p.y, r: 130 * kam.z, k: 0.85 }); }
+  if (S.licht) L.push({ x: ptr.x, y: ptr.y, r: CONFIG.lichtRadius * (1 + lichtStaerke * 0.2), warm: true });
+  if (S.kiste && S.kiste.licht > 0) L.push({ x: S.kiste.x, y: S.kiste.y - 60, r: 260 * S.kiste.licht, k: 0.8 });
+  return L;
+}
+function weltZuSchirm(x, y) { return { x: (x - kam.cx) * kam.z + W / 2, y: (y - kam.cy) * kam.z + H / 2 }; }
+
+// =====================================================================
+//  DER SCANNER – immer unten rechts. Für Briefing, Rückblick, Projekt-Scan,
+//  Abschlusskarten und Ergebnis wächst er aus der Ecke bis fast auf Vollbild.
+//  Entwurfsraster des Geräts: 1000 × 560, Bildschirm 680 × 488 (bei 36/36)
+// =====================================================================
+const SC_KLEIN = { x: 1162, y: 650, w: 410 }, SC_GROSS = { x: 110, y: 70, w: 1380 };
+function scRect() { const k = ease(SC.g); return { x: lerp(SC_KLEIN.x, SC_GROSS.x, k), y: lerp(SC_KLEIN.y, SC_GROSS.y, k), w: lerp(SC_KLEIN.w, SC_GROSS.w, k) }; }
+function scannerUpdate(dt) {
+  SC.g += Math.sign(SC.ziel - SC.g) * Math.min(Math.abs(SC.ziel - SC.g), dt * 1.15);
+  SC.wackeln = Math.max(0, SC.wackeln - dt);
+  regler.wert += (regler.ziel - regler.wert) * Math.min(1, dt * 7);
+  if (Math.abs(regler.ziel - regler.wert) < 0.002) regler.wert = regler.ziel;
+}
+const scGross = () => SC.g > 0.98;
+
+function scannerZeichnen() {
+  if (!SC.sichtbar) { REGLER_POS.r = 0; return; }
+  const r = scRect(), kx = r.w / 1000;
+  const wx = SC.wackeln > 0 ? Math.sin(zeit * 60) * 10 * SC.wackeln : 0;
+  ctx.save(); ctx.translate(r.x + wx, r.y); ctx.scale(kx, kx);
+  // Abdunkeln hinter dem großen Scanner
+  if (SC.g > 0) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(3,16,20,${0.55 * ease(SC.g)})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  // Gehäuse
+  rrPfad(0, 0, 1000, 560, 56); ctx.fillStyle = "#2E3439"; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = "#4B555C"; ctx.stroke();
+  rrPfad(14, 14, 972, 532, 46); ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,.07)"; ctx.stroke();
+  // Bildschirm
+  ctx.save(); rrPfad(36, 36, 680, 488, 18); ctx.clip(); ctx.translate(36, 36);
+  ctx.fillStyle = "#0E2328"; ctx.fillRect(0, 0, 680, 488);
+  bildschirm();
+  ctx.fillStyle = "rgba(255,255,255,.03)"; for (let y = 0; y < 488; y += 4) ctx.fillRect(0, y, 680, 1);
+  ctx.restore();
+  rrPfad(36, 36, 680, 488, 18); ctx.lineWidth = 8; ctx.strokeStyle = "#11181B"; ctx.stroke();
+  reglerGeraet();
+  ctx.restore();
+  REGLER_POS.x = r.x + 858 * kx; REGLER_POS.y = r.y + 285 * kx; REGLER_POS.r = 100 * kx;
+}
+
+// Drehregler am Gerät – für Zeit (Rückblick, Vorspulen) und für die Panel-Wahl
+function reglerGeraet() {
+  const rx = 858, ry = 285, rr = 100, max = regler.modus === "auswahl" ? 60 : 135, winkel = rad(regler.wert * max);
+  const akzent = regler.modus === "zeit" && regler.wert < -0.03 ? "#E8B07A" : "#5FD3C6";
+  const aktiv = reglerInBenutzung();
+  txt(regler.modus === "auswahl" ? "PANEL" : "ZEIT", rx, 112, 36, aktiv ? "#C9D6D6" : "rgba(201,214,214,.25)", "center", 500, MONO);
+  ctx.save(); if (!aktiv) ctx.globalAlpha *= 0.28;
+  // Beschriftung rund um den Regler – nur, wenn man ihn gerade benutzt
+  const lbl = !aktiv ? [] : regler.modus === "auswahl" ? [[-60, "HÖHLE"], [0, "TÜMPEL"], [60, "RILLEN"]]
+    : regler.skala === "vor" ? [[0, "HEUTE"], [67.5, "+1 J."], [135, "+2 J."]] : [[0, "HEUTE"], [-67.5, "1844"], [-135, "1788"]];
+  lbl.forEach(([w, t]) => { const a = rad(w); ctx.font = "500 21px " + MONO; const tw = ctx.measureText(t).width; const x = clamp(rx + Math.sin(a) * 138, 734 + tw / 2, 986 - tw / 2); txt(t, x, ry - Math.cos(a) * 138 + 8, 21, "#9FB4B6", "center", 500, MONO); });
+  ctx.strokeStyle = "rgba(221,243,240,.15)"; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.stroke();
+  if (Math.abs(winkel) > 0.01 && regler.modus === "zeit") { ctx.strokeStyle = akzent; ctx.beginPath(); ctx.arc(rx, ry, rr, -Math.PI / 2 + Math.min(0, winkel), -Math.PI / 2 + Math.max(0, winkel)); ctx.stroke(); }
+  if (regler.frei && regler.leuchten) {
+    const p = 0.5 + 0.5 * Math.sin(zeit * 5);
+    ctx.strokeStyle = `rgba(240,176,114,${0.45 + 0.5 * p})`; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(rx, ry, rr + 14 + p * 8, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.fillStyle = "#1F2428"; ctx.beginPath(); ctx.arc(rx, ry, 76, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "#6B767D"; ctx.lineWidth = 5; ctx.stroke();
+  ctx.save(); ctx.translate(rx, ry); ctx.rotate(winkel);
+  ctx.strokeStyle = "#3A4247"; ctx.lineWidth = 6; for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 64, Math.sin(a) * 64); ctx.lineTo(Math.cos(a) * 74, Math.sin(a) * 74); ctx.stroke(); }
+  ctx.fillStyle = "#2E3439"; ctx.beginPath(); ctx.arc(0, 0, 58, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = aktiv ? "#E8913A" : "#7C8B8F"; ctx.lineWidth = 11; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -54); ctx.stroke();
+  ctx.restore();
+  ctx.restore();
+  if (S.weiter && scGross()) {
+    const p = 0.5 + 0.5 * Math.sin(zeit * 5), bereitW = zeit >= S.weiterAb;
+    rrPfad(748, 452, 220, 76, 38); ctx.fillStyle = bereitW ? `rgba(240,176,114,${0.7 + 0.3 * p})` : "rgba(240,176,114,.3)"; ctx.fill();
+    txt("WEITER ▶", rx, 503, 34, "#0E2328", "center", 700, MONO);
+  } else if (regler.frei && regler.leuchten) txt("DREHEN", rx, 500, 38, "#F0B072", "center", 600, MONO);
+  else if (aktiv && regler.modus === "zeit") txt(zeitLabel(regler.wert), rx, 500, 34, akzent, "center", 500, MONO);
+  ctx.fillStyle = S.licht ? "#FFF2D0" : akzent; ctx.beginPath(); ctx.arc(950, 46, 9, 0, Math.PI * 2); ctx.fill();
+}
+function reglerInBenutzung() {
+  if (regler.frei) return true;
+  if (phase === "rueckblick" && S.rb && !S.rb.intro && S.rb.fertig < 0) return true;
+  if (phase === "zukunft" && S.zW && !S.zIntro && S.zukunftFertig < 0) return true;
+  return false;
+}
+function zeitLabel(e) {
+  if (regler.skala === "vor") { const m = Math.round(e * 24); return m <= 0 ? "HEUTE" : m < 24 ? `+${m} MONATE` : "+2 JAHRE"; }
+  if (e < -0.75) return "1788"; if (e < -0.25) return "1844"; return "HEUTE";
+}
+
+// ---------------------------------------------------------------------
+//  Bildschirm-Inhalte (Koordinaten 680 × 488)
+// ---------------------------------------------------------------------
+function kopfzeile(titel) {
+  const tiefe = clamp(0.4 + (taucherin.y - 130) / 690 * 4.2, 0, 9).toFixed(1).replace(".", ",");
+  txt(titel || "ABSCHNITT 3", 34, 58, 30, "#8FD3C8", "left", 500, MONO);
+  txt(`${tiefe} m · ${CONFIG.wasserTemp} °C`, 646, 58, 30, "#8FD3C8", "right", 500, MONO);
+  ctx.fillStyle = "rgba(143,211,200,.25)"; ctx.fillRect(34, 78, 612, 2);
+}
+function grossAnzeige(label, gross, farbe, klein) {
+  txt(label, 34, 138, 32, "#9FB4B6", "left", 500, MONO);
+  let gs = 88; ctx.font = `600 ${gs}px ${SANS}`; while (ctx.measureText(gross).width > 612 && gs > 44) { gs -= 6; ctx.font = `600 ${gs}px ${SANS}`; }
+  txt(gross, 34, 228, gs, farbe || "#FFFFFF", "left", 600);
+  if (klein) txt(klein, 34, 286, 32, "#C9D6D6");
+}
+function tierKarten(status) {
+  TIER_IDS.forEach((id, i) => {
+    const cx = 120 + i * 220, cy = 390, st = status(id);
+    ctx.fillStyle = st === "rot" ? "rgba(232,110,60,.18)" : st === "gruen" ? "rgba(95,211,198,.18)" : "rgba(221,243,240,.06)";
+    rrPfad(cx - 96, cy - 72, 192, 144, 18); ctx.fill();
+    if (st === "rot" || st === "gruen") { ctx.strokeStyle = st === "rot" ? "#E8703C" : "#5FD3C6"; ctx.lineWidth = 4; ctx.stroke(); }
+    const unbekannt = st === "leer";
+    bild(TIERE[id].img, cx, cy, id === "fisch" ? 1.0 : 0.9, { filter: unbekannt ? "brightness(0)" : st === "rot" ? "grayscale(.6)" : null, alpha: unbekannt ? 0.5 : 1 });
+    if (st === "warn" || st === "rot" || st === "gruen") {
+      const f = st === "gruen" ? "#5FD3C6" : "#E8703C";
+      ctx.fillStyle = f; ctx.beginPath(); ctx.arc(cx + 72, cy - 52, 24, 0, Math.PI * 2); ctx.fill();
+      if (st === "gruen") haken(cx + 72, cy - 52, 1, "#0E2328"); else if (st === "rot") kreuz(cx + 72, cy - 52, 0.9, "#0E2328"); else txt("!", cx + 72, cy - 41, 32, "#0E2328", "center", 700);
+    }
+  });
+}
+function signalBalken(staerke) {
+  const n = 6;
+  for (let i = 0; i < n; i++) {
+    const an = staerke * n > i, h = 18 + i * 10;
+    ctx.fillStyle = an ? `rgba(95,211,198,${0.6 + 0.4 * Math.sin(zeit * (4 + staerke * 10))})` : "rgba(221,243,240,.12)";
+    ctx.fillRect(520 + i * 22, 140 - h, 14, h);
+  }
+  txt("SIGNAL", 520, 162, 20, "#9FB4B6", "left", 500, MONO);
+}
+// Linien-Diagramm über die Zeit
+function diagramm(x, y, w, h, reihen, achseText) {
+  ctx.strokeStyle = "rgba(221,243,240,.3)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.stroke();
+  if (achseText) txt(achseText, x + w, y + h + 28, 20, "#9FB4B6", "right", 500, MONO);
+  reihen.forEach((r) => {
+    if (!r.werte.length) return;
+    ctx.strokeStyle = r.farbe; ctx.lineWidth = r.dick || 6; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    if (r.gestrichelt) ctx.setLineDash([10, 10]);
+    ctx.beginPath();
+    r.werte.forEach((v, i) => { const xx = x + (i / Math.max(1, r.n - 1)) * w, yy = y + h - clamp(v, 0, 1) * h; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); });
+    ctx.stroke(); ctx.setLineDash([]);
+    const last = r.werte[r.werte.length - 1], lx = x + ((r.werte.length - 1) / Math.max(1, r.n - 1)) * w, ly = y + h - clamp(last, 0, 1) * h;
+    ctx.fillStyle = r.farbe; ctx.beginPath(); ctx.arc(lx, ly, 8, 0, Math.PI * 2); ctx.fill();
+    if (r.label) txt(r.label, Math.min(lx + 14, x + w - 4), ly + (r.labelDy || -14), 22, r.farbe, lx + 14 > x + w - 150 ? "right" : "left", 600);
+  });
+}
+function countdownRing(cx, cy, r, anteil, sek, farbe) {
+  ctx.strokeStyle = "rgba(221,243,240,.15)"; ctx.lineWidth = 18; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = farbe; ctx.lineCap = "round"; ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(anteil, 0, 1)); ctx.stroke();
+  txt(sek, cx, cy + 26, 76, "#FFFFFF", "center", 600);
+}
+
+// Welt im Bildschirm (Rückblick, Vorspulen)
+function weltImSchirm(era) {
+  ctx.save(); const sc = 488 / 900; ctx.translate(340 - 800 * sc, 0); ctx.scale(sc, sc);
+  imGeraet = true; welt(era); tiereAnDerWand(era); imGeraet = false;
+  ctx.restore();
+}
+
+function bildschirm() {
+  switch (phase) {
+    case "attract": return;
+    case "boot": return S.schritt >= 0 && SC.g > 0.3 ? briefing() : (kopfzeile("FORSCHUNGSBOOT"), grossAnzeige("BRIEFING", "Bereit", "#FFFFFF", "Monitoring Sydney Harbour"));
+    case "sprung": case "sprung2": kopfzeile(); return grossAnzeige("TAUCHGANG", phase === "sprung" ? "Abschnitt 3" : "Zurück an der Wand", "#FFFFFF", "Hafenmauer, Sydney");
+    case "ankunft": kopfzeile(); return grossAnzeige("LICHT", S.licht ? "An" : "Aus", S.licht ? "#FFF2D0" : "#9FB4B6", S.licht ? "" : "Zum Einschalten gedrückt halten");
+    case "suche": {
+      kopfzeile(); const n = TIER_IDS.filter((id) => S.gespielt[id]).length;
+      grossAnzeige("TIERE GEFUNDEN", `${n} / 3`, "#FFFFFF");
+      signalBalken(S.signal || 0);
+      return tierKarten((id) => (S.gespielt[id] ? "rot" : S.gefunden[id] ? "warn" : "leer"));
+    }
+    case "archiv": kopfzeile(); grossAnzeige("ABSCHNITT 3", "3 Tiere", "#E8703C", "dreimal dasselbe Problem"); return tierKarten(() => "rot");
+    case "pruefen": if (S.pIntro) return pruefIntro(); kopfzeile(); grossAnzeige("TIERE PRÜFEN", `${TIER_IDS.filter((id) => S.geprueft[id]).length} / 3`, "#5FD3C6"); return tierKarten((id) => (S.geprueft[id] ? "gruen" : "neutral"));
+    case "seq": case "mini2": return !sz ? undefined : sz.stufe === "fazit" ? fazitKarte() : sz.stufe === "intro" ? spielIntro() : miniAnzeige();
+    case "rueckblick": return rueckblickSchirm();
+    case "lieferung": kopfzeile(); return grossAnzeige("SIGNAL", "Lieferung", "#F0B072", "vom Forschungsboot");
+    case "untersuchen": return objektSchirm();
+    case "projektscan": return projektSchirm();
+    case "montage": return montageSchirm();
+    case "auftauchen": kopfzeile(); return grossAnzeige("LIVING SEAWALLS", "3 / 3", "#5FD3C6", "Panels montiert");
+    case "zukunft": return SC.g > 0.3 ? (S.zIntro ? monitoringIntro() : zukunftSchirm()) : (kopfzeile("FORSCHUNGSBOOT"), grossAnzeige("MONITORING", "läuft", "#5FD3C6", "Panels montiert 3 / 3"));
+    case "ergebnis": case "ende": return ergebnisSchirm();
+  }
+}
+
+// ---------- Station 1: Briefing in vier Bildern ----------
+const KONTINENTE = [
+  [[60, 100], [150, 78], [220, 100], [205, 150], [165, 172], [146, 206], [112, 198], [88, 150]],
+  [[172, 214], [216, 228], [206, 286], [182, 336], [166, 298], [160, 250]],
+  [[296, 96], [350, 84], [372, 112], [330, 132], [304, 124]],
+  [[312, 150], [372, 146], [396, 192], [372, 258], [346, 288], [330, 240], [306, 196]],
+  [[374, 84], [520, 74], [604, 104], [584, 152], [522, 172], [472, 192], [424, 160], [382, 132]],
+  [[542, 250], [602, 244], [618, 284], [578, 300], [546, 286]],
+];
+const BELGIEN = [[0, 12], [18, 0], [40, 6], [56, 16], [64, 30], [52, 44], [36, 54], [30, 40], [14, 32], [4, 24]];
+function poly(pts, sx = 1, sy = 1, ox = 0, oy = 0) { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(ox + x * sx, oy + y * sy) : ctx.moveTo(ox + x * sx, oy + y * sy))); ctx.closePath(); }
+function briefing() {
+  const i = Math.min(3, S.schritt), t = S.schrittT;
+  ctx.fillStyle = "#08191D"; ctx.fillRect(0, 0, 680, 488);
+  txt(`BRIEFING ${i + 1} / 4`, 24, 36, 18, "#8FD3C8", "left", 500, MONO);
+  for (let k = 0; k < 4; k++) { ctx.fillStyle = k === i ? "#F0B072" : "rgba(221,243,240,.25)"; ctx.beginPath(); ctx.arc(298 + k * 28, 470, 6, 0, Math.PI * 2); ctx.fill(); }
+  const a = clamp(t / 0.6, 0, 1); ctx.save(); ctx.globalAlpha = a;
+  if (i === 0) {
+    txt("Küstenbauten", 24, 84, 40, "#FFFFFF", "left", 700);
+    umbruch("Mauern, Häfen, Molen, Wellenbrecher – alles, was Menschen an und ins Meer bauen.", 24, 116, 630, 20, 26, "#C9D6D6");
+    ctx.save(); ctx.translate(10, 150); ctx.scale(0.62, 0.62);
+    KONTINENTE.forEach((p) => { poly(p, 1, 1, -10, 0); ctx.fillStyle = "#2C4A52"; ctx.fill();
+      p.forEach(([x, y], k) => { const [x2, y2] = p[(k + 1) % p.length]; for (let s = 0; s < 1; s += 0.34) { ctx.fillStyle = `rgba(240,176,114,${0.5 + 0.4 * Math.sin(zeit * 3 + k + s * 5)})`; ctx.beginPath(); ctx.arc(-10 + lerp(x, x2, s), lerp(y, y2, s), 4, 0, Math.PI * 2); ctx.fill(); } }); });
+    ctx.restore();
+    const k = ease(clamp((t - 0.4) / 3, 0, 1)), wert = Math.round(lerp(32000, 39400, k) / 100) * 100;
+    txt(wert.toLocaleString("de-DE") + " km²", 410, 222, 40, "#FFFFFF", "left", 600);
+    txt(k < 0.5 ? "verbautes Meer · 2018" : "erwartet · 2028", 410, 252, 16, "#F0B072", "left", 500, MONO);
+    poly(BELGIEN, 1.3, 1.3, 420, 292); ctx.fillStyle = "rgba(240,176,114,.85)"; ctx.fill();
+    txt("Belgien", 520, 320, 16, "#C9D6D6", "left", 500, MONO); txt("30.700 km²", 520, 342, 16, "#C9D6D6", "left", 500, MONO);
+    umbruch("Weltweit ist schon mehr Meer mit Küstenbauten bedeckt, als Belgien groß ist.", 24, 414, 630, 22, 28, "#FFFFFF", "left", 600);
+  } else if (i === 1) {
+    ctx.fillStyle = "#CFE0E6"; ctx.fillRect(0, 50, 680, 70); ctx.fillStyle = "#2A6F7D"; ctx.fillRect(0, 120, 680, 290);
+    ctx.fillStyle = "#9E7A4E"; ctx.beginPath(); ctx.moveTo(380, 410); ctx.lineTo(420, 120); ctx.lineTo(470, 90); ctx.lineTo(560, 100); ctx.lineTo(680, 70); ctx.lineTo(680, 410); ctx.fill();
+    FELS.slice(0, 40).forEach((f, k) => { ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc(440 + (k % 8) * 32, 150 + Math.floor(k / 8) * 52, 18, 0, Math.PI * 2); ctx.fill(); });
+    for (let k = 0; k < 14; k++) { ctx.fillStyle = ALGEN[k].c; ctx.beginPath(); ctx.arc(420 + (k * 47) % 250, 160 + (k * 83) % 240, 12, 0, Math.PI * 2); ctx.fill(); }
+    SCHWARM.forEach((f, k) => kleinerFisch(((f.x * 0.4 + zeit * f.v) % 420), 150 + (k * 37) % 240, 1.1, f.c, false));
+    umbruch("Gebaut wird an den Küsten – dort, wo das Meer am artenreichsten ist.", 24, 438, 630, 22, 28, "#FFFFFF");
+  } else if (i === 2) {
+    ctx.fillStyle = "#16343A"; ctx.fillRect(0, 50, 680, 370);
+    const kueste = [[40, 250], [90, 210], [130, 240], [170, 170], [210, 230], [260, 200], [300, 260], [340, 180], [380, 240], [430, 210], [470, 270], [520, 190], [560, 250], [600, 220], [640, 260]];
+    const k = ease(clamp((t - 0.4) / 3, 0, 1)) * 0.54;
+    ctx.lineWidth = 14; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.strokeStyle = "#5E8A55"; ctx.beginPath(); kueste.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+    const n = Math.floor(k * (kueste.length - 1));
+    ctx.strokeStyle = "#9AA3A6"; ctx.beginPath(); kueste.slice(0, n + 2).forEach(([x, y], m) => { const pt = m <= n ? [x, y] : [lerp(kueste[n][0], x, k * (kueste.length - 1) - n), lerp(kueste[n][1], y, k * (kueste.length - 1) - n)]; m ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]); }); ctx.stroke();
+    txt("SYDNEY HARBOUR", 24, 96, 18, "#8FD3C8", "left", 500, MONO);
+    txt(k > 0.5 ? "über 50 %" : Math.round(k * 100) + " %", 24, 360, 56, "#F0B072", "left", 600);
+    txt("des Ufers verbaut", 24, 392, 20, "#C9D6D6", "left", 500);
+    umbruch("Im Sydney Harbour ist über die Hälfte des Ufers mit Küstenbauten verbaut.", 24, 438, 630, 22, 28, "#FFFFFF");
+  } else {
+    ctx.fillStyle = "#6C7A7E"; ctx.fillRect(0, 50, 338, 360);
+    ctx.strokeStyle = "#5B686C"; ctx.lineWidth = 3; for (let y = 100; y < 410; y += 90) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(338, y); ctx.stroke(); }
+    ctx.save(); ctx.beginPath(); ctx.rect(342, 50, 338, 360); ctx.clip(); ctx.translate(342, 50); ctx.scale(0.42, 0.42); ctx.translate(-400, -150);
+    ctx.fillStyle = "#8F7048"; ctx.fillRect(0, 0, 1600, 1200);
+    FELS.forEach((f) => { ctx.fillStyle = f.c; ctx.beginPath(); f.pts.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.closePath(); ctx.fill(); });
+    ctx.strokeStyle = "#4E3A26"; ctx.lineWidth = 8; SPALTEN.forEach((s) => { ctx.beginPath(); s.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); });
+    TUEMPEL.forEach((tp) => { ctx.fillStyle = "#3E8A9A"; ctx.beginPath(); ctx.ellipse(tp.x, tp.y + 200, tp.rx * 1.5, tp.ry * 1.5, 0, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+    txt("KÜSTENBAU", 24, 86, 18, "#FFFFFF", "left", 600, MONO); txt("FELS", 366, 86, 18, "#FFFFFF", "left", 600, MONO);
+    symbol("glatt", 169, 240, 1.2, "rgba(255,255,255,.8)"); kreuz(169, 240, 1.6, "#E8703C");
+    umbruch("Küstenbauten sind glatt: keine Verstecke, kein Halt.", 24, 444, 630, 24, 28, "#FFFFFF", "left", 600);
+  }
+  ctx.restore();
+}
+
+// ---------- Station 3/6: Minigame-Anzeigen ----------
+function miniAnzeige() {
+  if (!sz) return;
+  const s = sz, gut = s.erfolg;
+  kopfzeile(TIERE[s.id].kurz.toUpperCase());
+  if (s.id === "fisch") {
+    txt("RAUBFISCH", 34, 128, 30, "#9FB4B6", "left", 500, MONO);
+    const rest = Math.max(0, s.dauer - s.st);
+    countdownRing(150, 290, 110, rest / s.dauer, s.stufe === "spiel" || s.stufe === "intro" || s.stufe === "countdown" ? Math.ceil(rest) : s.sicher ? "✓" : "0", s.sicher ? "#5FD3C6" : rest < 4 ? "#E8703C" : "#F0B072");
+    const naehe = clamp(1 - (s.rx - s.fx) / 1100, 0, 1);
+    txt("NÄHE", 320, 200, 26, "#9FB4B6", "left", 500, MONO);
+    ctx.fillStyle = "rgba(221,243,240,.12)"; rrPfad(320, 220, 320, 34, 17); ctx.fill();
+    ctx.fillStyle = naehe > 0.75 ? "#E8703C" : "#F0B072"; rrPfad(320, 220, 320 * naehe, 34, 17); ctx.fill();
+    txt("VERSTECK", 320, 320, 26, "#9FB4B6", "left", 500, MONO);
+    txt(s.sicher ? "gefunden ✓" : gut ? "Höhle im Panel" : s.marken.length ? "zu flach ✕" : "sucht …", 320, 368, 40, s.sicher ? "#5FD3C6" : s.marken.length ? "#E8703C" : "#FFFFFF", "left", 600);
+  } else if (s.id === "schnecke") {
+    txt("EBBE · WAND", 34, 128, 30, "#9FB4B6", "left", 500, MONO);
+    txt(`${s.temp.toFixed(0)} °C`, 646, 128, 44, s.temp > 26 ? "#E8703C" : "#5FD3C6", "right", 600);
+    const n = Math.ceil(s.dauer / 0.25) + 1;
+    const reihen = [{ werte: s.hist.map((h) => h.w), farbe: "#5FD3C6", n, label: "Wasserstand", labelDy: 34 }, { werte: s.hist.map((h) => (h.t - 15) / 22), farbe: gut ? "#5FD3C6" : "#E8703C", n, label: "Temperatur", dick: 6 }];
+    if (gut) { reihen[1].label = "Temperatur im Tümpel"; reihen.unshift({ werte: s.hist.map((h, k) => clamp((Math.min(34, 19 + Math.max(0, k * 0.25 - 2.5) * 1.6) - 15) / 22, 0, 1)), farbe: "rgba(232,112,60,.45)", n, gestrichelt: true, dick: 4, label: "ohne Panel", labelDy: -14 }); }
+    diagramm(40, 160, 600, 240, reihen, "ZEIT →");
+  } else {
+    txt("AUSTERNLARVEN", 34, 128, 30, "#9FB4B6", "left", 500, MONO);
+    const n = s.fest, ziel = gut ? AUSTER_ZIEL : s.larven.length;
+    txt(gut ? `fest ${n} / ${AUSTER_ZIEL}` : `haften fest ${n} / ${ziel}`, 34, 200, 56, gut ? (n >= ziel ? "#5FD3C6" : "#FFFFFF") : "#FFFFFF", "left", 600);
+    const m = Math.ceil(s.dauer / 0.25) + 1;
+    diagramm(40, 240, 600, 170, [{ werte: s.hist.map((h) => h / ziel), farbe: gut ? "#5FD3C6" : "#E8703C", n: m, label: gut ? "steigt" : "bleibt bei 0" }], "ZEIT →");
+  }
+}
+// Abschlusskarte jedes Minigames: links das Bedürfnis, rechts was die Wand bietet
+function fazitKarte() {
+  const s = sz, t = TIERE[s.id], gut = s.erfolg, ft = zeit - S.fazit.t;
+  ctx.fillStyle = "#0A1D21"; ctx.fillRect(0, 0, 680, 488);
+  txt(t.name.toUpperCase(), 340, 52, 20, "#8FD3C8", "center", 500, MONO);
+  // Links: braucht
+  ctx.fillStyle = "rgba(221,243,240,.06)"; rrPfad(40, 80, 270, 230, 20); ctx.fill();
+  txt("BRAUCHT", 175, 118, 20, "#9FB4B6", "center", 500, MONO);
+  symbol(t.bed, 175, 200, 1.5, "#FFFFFF");
+  txt(t.bedText, 175, 284, 30, "#FFFFFF", "center", 600);
+  // Rechts: Wand bietet
+  const a = clamp((ft - 0.8) / 0.6, 0, 1); ctx.save(); ctx.globalAlpha = a;
+  ctx.fillStyle = gut ? "rgba(95,211,198,.14)" : "rgba(232,112,60,.14)"; rrPfad(370, 80, 270, 230, 20); ctx.fill();
+  txt(gut ? "PANEL BIETET" : "WAND BIETET", 505, 118, 20, "#9FB4B6", "center", 500, MONO);
+  if (gut) { if (lsBereit()) panelZeichnen(t.panel, 505, 196, 56); haken(574, 156, 1.6, "#5FD3C6"); txt(t.bedText, 505, 284, 30, "#5FD3C6", "center", 600); }
+  else { symbol("glatt", 505, 190, 1.4, "rgba(255,255,255,.7)"); kreuz(505, 190, 2, "#E8703C"); umbruch(WAND_TEXT[s.id], 505, 268, 250, 24, 28, "#E8703C", "center", 600); }
+  ctx.restore();
+  ctx.save(); ctx.globalAlpha = clamp((ft - 1.6) / 0.6, 0, 1);
+  umbruch(gut ? t.gewinn : t.verlust, 340, 360, 620, 25, 33, "#FFFFFF", "center", 600);
+  ctx.restore();
+}
+
+// ---------- Station 4: Rückblick ----------
+const jahrAusEra = (e) => (e < -0.5 ? lerp(1788, 1844, (e + 1) / 0.5) : lerp(1844, 2026, (e + 0.5) / 0.5));
+const verbaut = (j) => (j < 1837 ? 0 : j < 1900 ? lerp(0, 0.15, (j - 1837) / 63) : j < 1980 ? lerp(0.15, 0.5, (j - 1900) / 80) : lerp(0.5, 0.53, (j - 1980) / 46));
+const vielfalt = (j) => (j < 1800 ? 1 : j < 1870 ? lerp(1, 0.75, (j - 1800) / 70) : j < 1900 ? lerp(0.75, 0.7, (j - 1870) / 30) : lerp(0.7, 0.4, clamp((j - 1900) / 80, 0, 1)));
+function rueckblickSchirm() {
+  if (S.rb && S.rb.intro) return archivIntro();
+  const e = regler.wert, j = jahrAusEra(e);
+  weltImSchirm(e);
+  // Kopf: Jahr
+  ctx.fillStyle = "rgba(8,28,33,.82)"; rrPfad(14, 14, 250, 78, 10); ctx.fill();
+  txt(e < -0.03 ? "ARCHIV · REKONSTRUKTION" : "LIVE · HAFENMAUER", 28, 40, 14, "#8FD3C8", "left", 500, MONO);
+  txt(String(Math.round(j)), 28, 80, 36, e < -0.03 ? "#E8B07A" : "#FFFFFF", "left", 600, MONO);
+  // Info-Kasten je Haltepunkt
+  let titel = "", zeilen = [];
+  if (e > -0.15) { titel = "Heute · glatter Beton"; zeilen = ["über 50 % des Ufers verbaut"]; }
+  else if (e > -0.75 && e < -0.3 && S.rb.s1844) { titel = "1844 · Sandsteinmauer"; zeilen = ["rau, mit Fugen: mehr Leben als Beton", "Austernriffe: für Kalkmörtel verbrannt"]; }
+  else if (e <= -0.85) { titel = "1788 · Felsufer"; zeilen = ["Spalten, Tümpel, Austernriffe"]; }
+  if (titel) {
+    ctx.fillStyle = "rgba(8,28,33,.85)"; rrPfad(290, 14, 376, 40 + zeilen.length * 26, 10); ctx.fill();
+    txt(titel, 306, 42, 22, "#FFFFFF", "left", 600); zeilen.forEach((z, k) => txt(z, 306, 70 + k * 26, 17, "#C9D6D6"));
+  }
+  // Haken bei 1788: Versteck, Feuchtigkeit, raue Fläche
+  if (S.rb.s1788 > 0 && e <= -0.85) {
+    ["versteck", "feucht", "rau"].forEach((b, k) => {
+      const a = clamp((zeit - S.rb.s1788 - 0.4 - k * 0.8) / 0.4, 0, 1); if (a <= 0) return;
+      ctx.save(); ctx.globalAlpha = a; const x = 330 + k * 112, y = 150;
+      ctx.fillStyle = "rgba(8,28,33,.88)"; rrPfad(x - 50, y - 46, 100, 112, 12); ctx.fill();
+      symbol(b, x, y - 6, 0.7, "#FFFFFF"); haken(x + 30, y - 30, 0.9, "#5FD3C6");
+      txt(BED_TEXT[b], x, y + 52, 14, "#5FD3C6", "center", 600); ctx.restore();
+    });
+  }
+  // Zeitleiste mit zwei Kurven
+  const bx = 14, by = 302, bw = 652, bh = 172;
+  ctx.fillStyle = "rgba(8,28,33,.88)"; rrPfad(bx, by, bw, bh, 12); ctx.fill();
+  const x0 = 60, x1 = 620, y0 = by + 40, y1 = by + 122, jx = (jj) => lerp(x0, x1, (jj - 1788) / (2026 - 1788));
+  const kurve = (f, farbe, bis) => { ctx.strokeStyle = farbe; ctx.lineWidth = 4; ctx.beginPath(); let erster = true; for (let jj = bis; jj <= 2026; jj += 2) { const xx = jx(jj), yy = lerp(y1, y0, f(jj)); erster ? ctx.moveTo(xx, yy) : ctx.lineTo(xx, yy); erster = false; } ctx.stroke(); };
+  ctx.globalAlpha = 0.25; kurve(verbaut, "#F0B072", 1788); kurve(vielfalt, "#5FD3C6", 1788); ctx.globalAlpha = 1;
+  kurve(verbaut, "#F0B072", j); kurve(vielfalt, "#5FD3C6", j);
+  txt("Verbautes Ufer", 30, by + 24, 15, "#F0B072", "left", 600); txt("Artenvielfalt", 170, by + 24, 15, "#5FD3C6", "left", 600);
+  if (j > 2000) txt("> 50 %", jx(2026) - 4, lerp(y1, y0, verbaut(2026)) - 10, 15, "#F0B072", "right", 600);
+  ctx.fillStyle = "rgba(154,163,166,.16)"; ctx.fillRect(jx(1900), y0 - 8, jx(2000) - jx(1900), y1 - y0 + 8); txt("Betonmauern · 20. Jh.", (jx(1900) + jx(2000)) / 2, y1 - 6, 13, "#9FB4B6", "center", 600, MONO);
+  [[1800, "1800"], [1850, "1850"], [1900, "1900"], [1950, "1950"], [2026, "heute"]].forEach(([jj, t]) => { ctx.fillStyle = "rgba(221,243,240,.5)"; ctx.fillRect(jx(jj) - 1, y1, 2, 8); txt(t, jx(jj), y1 + 24, 14, "#C9D6D6", "center", 500, MONO); });
+  ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(jx(j), y0 - 6); ctx.lineTo(jx(j), y1 + 4); ctx.stroke();
+  ctx.fillStyle = e < -0.03 ? "#E8B07A" : "#FFFFFF"; ctx.beginPath(); ctx.arc(jx(j), y1, 7, 0, Math.PI * 2); ctx.fill();
+  // Frage am Ende
+}
+
+// ---------- Station 5: Panels untersuchen, Projekt-Scan, Panels wählen ----------
+const OBJ = { x: 800, y: 560, r: 88 };
+function kPanelPos(k) { const K = S.kiste, e = ease(K ? K.offen : 0); return K ? { x: lerp(K.x, 610 + k * 190, e), y: lerp(K.y, OBJ.y, e) } : { x: 610 + k * 190, y: OBJ.y }; }
+function objektSchirm() {
+  kopfzeile(); const n = S.unt.filter((u) => u >= 1).length;
+  grossAnzeige(S.untFertig ? "PANELS · BEREIT" : "PANELS UNTERSUCHEN", S.untFertig ? "Scannen" : `${n} / 3`, S.untFertig ? "#F0B072" : "#FFFFFF");
+  PANEL_TYPEN.forEach((p, k) => {
+    const an = S.unt[k] >= 1, x = 130 + k * 210, y = 380;
+    ctx.fillStyle = an ? "rgba(95,211,198,.18)" : "rgba(221,243,240,.06)"; rrPfad(x - 90, y - 76, 180, 150, 16); ctx.fill();
+    symbol(p.bed, x, y - 16, 1.1, an ? "#5FD3C6" : "rgba(221,243,240,.25)");
+    txt(BED_TEXT[p.bed], x, y + 52, 22, an ? "#5FD3C6" : "rgba(221,243,240,.35)", "center", 600);
+  });
+}
+function projektSchirm() {
+  const i = Math.min(1, S.schritt), t = S.schrittT;
+  ctx.fillStyle = "#08191D"; ctx.fillRect(0, 0, 680, 488);
+  txt(`SCAN-ERGEBNIS ${i + 1} / 2`, 24, 36, 18, "#8FD3C8", "left", 500, MONO);
+  const a = clamp(t / 0.6, 0, 1); ctx.save(); ctx.globalAlpha = a;
+  if (i === 0) {
+    PANEL_TYPEN.forEach((p, k) => panelZeichnen(p.id, 120, 130 + k * 110, 50));
+    txt("PROJEKT ERKANNT", 250, 110, 20, "#5FD3C6", "left", 700, MONO);
+    txt("Living Seawalls", 250, 162, 42, "#FFFFFF", "left", 700);
+    umbruch("Ein Forschungsprojekt des Sydney Institute of Marine Science (SIMS) mit dem Reef Design Lab", 250, 202, 400, 20, 27, "#C9D6D6");
+    txt("seit 2018 in Sydney", 250, 292, 24, "#F0B072", "left", 600);
+    umbruch("Betonpanels, die Strukturen eines natürlichen Felsufers nachbilden.", 250, 340, 400, 21, 28, "#FFFFFF", "left", 600);
+  } else {
+    // Dicht an dicht: viele Panels werden an die glatte Mauer geschraubt
+    ctx.save(); rrPfad(40, 60, 600, 300, 10); ctx.clip();
+    ctx.fillStyle = "#6C7A7E"; ctx.fillRect(40, 60, 600, 300);
+    ctx.strokeStyle = "#5B686C"; ctx.lineWidth = 3; for (let y = 120; y < 360; y += 100) { ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(640, y); ctx.stroke(); }
+    let n = 0;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 9; c++) {
+      const x = 70 + c * 70 + (r % 2) * 35, y = 100 + r * 62, d = 0.4 + n * 0.07; n++;
+      const kk = ease(clamp((t - d) / 0.4, 0, 1)); if (kk <= 0) continue;
+      ctx.save(); ctx.globalAlpha *= kk; panelZeichnen(PANEL_TYPEN[(r * 2 + c) % 3].id, x, y - (1 - kk) * 20, 33); ctx.restore();
+    }
+    ctx.restore();
+    umbruch("Sie werden dicht an dicht an bestehende Mauern montiert – die Mauer bleibt, sie bekommt nur Struktur.", 34, 404, 610, 23, 30, "#FFFFFF", "left", 600);
+  }
+  ctx.restore();
+  for (let k = 0; k < 2; k++) { ctx.fillStyle = k === i ? "#F0B072" : "rgba(221,243,240,.25)"; ctx.beginPath(); ctx.arc(326 + k * 28, 474, 6, 0, Math.PI * 2); ctx.fill(); }
+}
+// ---------- Einleitungskarten auf dem großen Scanner ----------
+function archivIntro() {
+  ctx.fillStyle = "#0A1D21"; ctx.fillRect(0, 0, 680, 488);
+  txt("ARCHIV", 34, 52, 20, "#E8B07A", "left", 600, MONO);
+  txt("Drei Tiere, drei Probleme", 34, 96, 34, "#FFFFFF", "left", 700);
+  TIER_IDS.forEach((id, i) => {
+    const x = 120 + i * 220, t = TIERE[id];
+    ctx.fillStyle = "rgba(232,112,60,.12)"; rrPfad(x - 96, 122, 192, 214, 16); ctx.fill();
+    bild(t.img, x, 168, id === "fisch" ? 0.85 : 0.75);
+    symbol(t.bed, x, 246, 0.7, "#FFFFFF"); kreuz(x + 46, 226, 0.8, "#E8703C");
+    txt(t.bedText, x, 312, 20, "#FFFFFF", "center", 600);
+  });
+  umbruch("War das hier schon immer so? Wie sah dieses Ufer früher aus?", 340, 386, 600, 28, 36, "#E8B07A", "center", 600);
+}
+function monitoringIntro() {
+  ctx.fillStyle = "#0A1D21"; ctx.fillRect(0, 0, 680, 488);
+  txt("LANGZEIT-MONITORING", 34, 52, 20, "#5FD3C6", "left", 600, MONO);
+  umbruch("Die Panels hängen. Was passiert in den nächsten zwei Jahren an der Mauer?", 34, 108, 612, 32, 40, "#FFFFFF", "left", 700);
+  PANEL_TYPEN.forEach((p, i) => panelZeichnen(p.id, 140 + i * 200, 290, 70));
+  umbruch("Gleich drehst du die Zeit vorwärts – und siehst, was wächst.", 34, 428, 612, 22, 28, "#C9D6D6");
+}
+function pruefIntro() {
+  ctx.fillStyle = "#0A1D21"; ctx.fillRect(0, 0, 680, 488);
+  txt("JETZT BIST DU DRAN", 340, 78, 40, "#F0B072", "center", 700, MONO);
+  umbruch("Bisher hast du zugeschaut. Jetzt hilfst du den drei Tieren – mit den Panels.", 340, 134, 580, 26, 34, "#FFFFFF", "center", 600);
+  TIER_IDS.forEach((id, i) => { const x = 140 + i * 200; ctx.fillStyle = "rgba(240,176,114,.12)"; rrPfad(x - 80, 226, 160, 130, 16); ctx.fill(); bild(TIERE[id].img, x, 291, id === "fisch" ? 0.9 : 0.8); });
+  umbruch("Zeige auf ein Tier und halte gedrückt, um zu spielen.", 340, 412, 580, 22, 28, "#C9D6D6", "center", 500);
+}
+function spielIntro() {
+  const s = sz, t = TIERE[s.id], m = MINI_TEXT[s.id];
+  ctx.fillStyle = "#0A1D21"; ctx.fillRect(0, 0, 680, 488);
+  txt("DU BIST DRAN", 34, 56, 22, "#F0B072", "left", 700, MONO);
+  txt(t.name, 34, 100, 32, "#FFFFFF", "left", 700);
+  txt("ZIEL", 34, 156, 18, "#9FB4B6", "left", 600, MONO);
+  umbruch(m.ziel, 34, 190, 612, 26, 34, "#FFFFFF", "left", 600);
+  txt("SO GEHT'S", 34, 290, 18, "#9FB4B6", "left", 600, MONO);
+  ctx.fillStyle = "rgba(255,244,214,.25)"; ctx.beginPath(); ctx.arc(66, 334, 28, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "#5FD3C6"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(66, 334, 13, 0, Math.PI * 2); ctx.stroke();
+  bild(t.img, 150, 334, s.id === "fisch" ? 0.55 : 0.5);
+  umbruch(m.steuer, 210, 342, 440, 24, 30, "#FFFFFF");
+  umbruch(m.erinn, 34, 420, 612, 20, 26, "#5FD3C6", "left", 500);
+}
+function montageSchirm() {
+  kopfzeile();
+  const fb = S.feedback && zeit - S.feedback.t < 4 ? S.feedback : null;
+  const fa = S.falsch && zeit - S.falsch.t < 2.4 ? S.falsch : null;
+  if (fb) {
+    const id = fb.id, t = TIERE[id], k = clamp((zeit - fb.t) / 2.5, 0, 1);
+    txt(t.kurz.toUpperCase() + " · MIT PANEL", 34, 128, 30, "#5FD3C6", "left", 600, MONO);
+    if (id === "fisch") { countdownRing(150, 300, 110, 1 - k, "✓", "#5FD3C6"); txt("Versteck ✓", 320, 300, 52, "#5FD3C6", "left", 600); txt("Raubfisch? Kein Problem.", 320, 350, 26, "#C9D6D6"); }
+    else if (id === "schnecke") {
+      const n = 30, ohne = [], mit = []; for (let i = 0; i <= n * k; i++) { ohne.push(clamp((19 + i * 0.6 - 15) / 22, 0, 1)); mit.push(clamp((Math.min(CONFIG.wandTempEbbe - 10, 19 + i * 0.4) - 15) / 22, 0, 1)); }
+      diagramm(40, 170, 600, 230, [{ werte: ohne, farbe: "rgba(232,112,60,.55)", n: n + 1, gestrichelt: true, dick: 4, label: "ohne Panel" }, { werte: mit, farbe: "#5FD3C6", n: n + 1, label: "mit Panel", labelDy: 32 }], "EBBE →");
+    } else {
+      const n = 30, w = []; for (let i = 0; i <= n * k; i++) w.push(clamp(i / n, 0, 1) * 0.7);
+      txt(`haften ${Math.round(35 * k)} / 50`, 34, 200, 52, "#5FD3C6", "left", 600);
+      diagramm(40, 240, 600, 170, [{ werte: w, farbe: "#5FD3C6", n: n + 1, label: "steigt" }], "ZEIT →");
+    }
+    return;
+  }
+  if (fa) {
+    const t = TIERE[fa.id];
+    txt("PASST NICHT", 34, 128, 30, "#E8703C", "left", 600, MONO);
+    symbol(t.bed, 150, 290, 1.6, "#FFFFFF");
+    txt(t.kurz + " braucht:", 290, 270, 30, "#C9D6D6"); txt(t.bedText, 290, 320, 52, "#FFFFFF", "left", 600);
+    return;
+  }
+  const n = TIER_IDS.filter((id) => S.platziert[id]).length;
+  if (!S.aktiv) { grossAnzeige("LIVING SEAWALLS", `${n} / 3`, "#5FD3C6", n === 3 ? "Panels montiert" : "Stelle an der Wand wählen"); return; }
+  txt(`PANEL FÜR ${TIERE[S.aktiv].kurz.toUpperCase()} WÄHLEN`, 34, 128, 28, "#F0B072", "left", 600, MONO);
+  const wahl = auswahlIndex();
+  PANEL_TYPEN.forEach((p, i) => {
+    const x = 120 + i * 220, y = 290, an = i === wahl;
+    ctx.fillStyle = an ? "rgba(240,176,114,.2)" : "rgba(221,243,240,.06)"; rrPfad(x - 96, y - 110, 192, 250, 18); ctx.fill();
+    if (an) { ctx.strokeStyle = "#F0B072"; ctx.lineWidth = 5; ctx.stroke(); }
+    panelZeichnen(p.id, x, y - 20, 74);
+    txt(p.kurz, x, y + 104, 26, an ? "#FFFFFF" : "#9FB4B6", "center", 600, MONO);
+  });
+}
+
+// ---------- Station 6: Vorspulen und Ergebnis ----------
+function zukunftSchirm() {
+  const e = regler.wert;
+  weltImSchirm(e);
+  ctx.fillStyle = "rgba(8,28,33,.82)"; rrPfad(14, 14, 300, 78, 10); ctx.fill();
+  txt("LANGZEIT-MONITORING", 28, 40, 14, "#8FD3C8", "left", 500, MONO);
+  txt(zeitLabel(e), 28, 80, 34, "#FFFFFF", "left", 600, MONO);
+  const bx = 14, by = 338, bw = 652, bh = 136;
+  ctx.fillStyle = "rgba(8,28,33,.88)"; rrPfad(bx, by, bw, bh, 12); ctx.fill();
+  const werte = []; const n = 40; for (let i = 0; i <= n * e; i++) werte.push(0.25 + 0.6 * easeOut(i / n));
+  txt("Arten auf der Mauer", 34, by + 30, 16, "#5FD3C6", "left", 600);
+  diagramm(40, by + 42, 600, 70, [{ werte, farbe: "#5FD3C6", n: n + 1, label: e > 0.95 ? `+${CONFIG.artenPlus} %` : "" }], "");
+  if (S.zukunftFertig > 0) {
+    const a = clamp((zeit - S.zukunftFertig) / 0.6, 0, 1);
+    ctx.fillStyle = `rgba(6,22,26,${0.7 * a})`; ctx.fillRect(0, 0, 680, 488);
+    ctx.save(); ctx.globalAlpha = a; txt("2 JAHRE SPÄTER", 340, 250, 48, "#F0B072", "center", 600, MONO); ctx.restore();
+  }
+}
+const STANDORTE = [[588, 292, "Sydney"], [318, 100, "Wales"], [300, 132, "Gibraltar", 40], [520, 210, "Singapur"]];
+function ergebnisSchirm() {
+  const i = Math.min(2, S.schritt), t = S.schrittT;
+  ctx.fillStyle = "#08191D"; ctx.fillRect(0, 0, 680, 488);
+  const a = clamp(t / 0.6, 0, 1); ctx.save(); ctx.globalAlpha = a;
+  if (i === 0) {
+    txt("ERGEBNIS NACH 2 JAHREN", 24, 40, 18, "#8FD3C8", "left", 500, MONO);
+    const k = ease(clamp((t - 0.4) / 1.6, 0, 1)), basis = 200, hMax = basis * (1 + CONFIG.artenPlus / 100);
+    [[120, "Glatte Mauer", basis, "#7C8B8F"], [340, "Living Seawalls", lerp(basis, hMax, k), "#5FD3C6"], [560, "Natürliches Felsriff", hMax, "rgba(232,176,122,.55)"]].forEach(([x, l, h, f]) => {
+      ctx.fillStyle = f; rrPfad(x - 70, 370 - h, 140, h, 10); ctx.fill();
+      txt(l, x, 400, 19, "#FFFFFF", "center", 600);
+    });
+    txt("Arten", 24, 110, 18, "#9FB4B6", "left", 500, MONO);
+    if (k > 0.9) { txt(`+${CONFIG.artenPlus} %`, 340, 370 - hMax - 14, 34, "#5FD3C6", "center", 700); txt("ähnlich viele", 560, 370 - hMax - 14, 20, "#E8B07A", "center", 600); }
+    umbruch(`${CONFIG.artenGesamt} Arten in zwei Jahren – so viele wie an einem natürlichen Felsriff.`, 340, 438, 620, 21, 27, "#C9D6D6", "center", 500);
+  } else if (i === 1) {
+    txt("LIVING SEAWALLS WELTWEIT", 24, 40, 18, "#8FD3C8", "left", 500, MONO);
+    KONTINENTE.forEach((p) => { poly(p, 1, 1, -10, 0); ctx.fillStyle = "#2C4A52"; ctx.fill();
+      p.forEach(([x, y], k) => { const [x2, y2] = p[(k + 1) % p.length]; for (let s = 0; s < 1; s += 0.34) { ctx.fillStyle = "rgba(154,163,166,.55)"; ctx.beginPath(); ctx.arc(-10 + lerp(x, x2, s), lerp(y, y2, s), 3, 0, Math.PI * 2); ctx.fill(); } }); });
+    STANDORTE.forEach(([x, y, n], k) => { const b = clamp((t - 0.6 - k * 0.5) / 0.4, 0, 1); if (b <= 0) return;
+      ctx.fillStyle = `rgba(95,211,198,${0.3 * b})`; ctx.beginPath(); ctx.arc(x, y, 14 + 6 * Math.sin(zeit * 3), 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#5FD3C6"; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill(); txt(n, x, y + (STANDORTE[k][3] || -18), 16, "#FFFFFF", "center", 600); });
+    umbruch("Über 1.000 Panels hängen inzwischen in Australien, Singapur, Gibraltar und Wales.", 340, 430, 600, 22, 28, "#FFFFFF", "center", 600);
+  } else {
+    PANEL_TYPEN.forEach((p, k) => panelZeichnen(p.id, 200 + k * 140, 170, 66, 0.9));
+    txt("Mauern müssen nicht", 340, 340, 44, "#FFFFFF", "center", 700); txt("leblos sein.", 340, 392, 44, "#5FD3C6", "center", 700);
+    txt("GEDRÜCKT HALTEN FÜR EINEN NEUEN TAUCHGANG", 340, 452, 16, "#F0B072", "center", 500, MONO);
+  }
+  ctx.restore();
+}
+
+// =====================================================================
+//  Zeiger, Halten, Auslösen
+// =====================================================================
+const imScannerBereich = () => ptr.x > SC_KLEIN.x - 12 && ptr.y > SC_KLEIN.y - 12;
+function tierUnterZeiger(filter) {
+  for (const id of TIER_IDS) { if (!filter(id)) continue; const q = tierPos(id); if (Math.hypot(ptr.x - q.x, ptr.y - q.y) < 90) return id; }
+  return null;
+}
+function zielFinden() {
+  if (funk.aktuell) return { key: "funk", dauer: 0.25 };
+  if (S.weiter && scGross()) return zeit >= S.weiterAb ? { key: "weiter", dauer: 0.3 } : null;
+  switch (phase) {
+    case "attract": return { key: "start", dauer: CONFIG.haltenStart };
+    case "ende": return { key: "neu", dauer: CONFIG.haltenStart };
+    case "ankunft": return S.bereitLicht && !S.licht ? { key: "licht", dauer: CONFIG.haltenStart } : null;
+    case "suche": { if (S.zoom) return null; const id = tierUnterZeiger((i) => !S.gefunden[i] && sichtbarkeit(i) > 0.45); return id ? { key: "fund:" + id, id, dauer: CONFIG.haltenScan } : null; }
+    case "pruefen": { if (S.zoom || S.pIntro) return null; const id = tierUnterZeiger((i) => !S.geprueft[i]); return id ? { key: "pruef:" + id, id, dauer: CONFIG.haltenScan } : null; }
+    case "untersuchen": return S.untFertig && S.kiste && [0, 1, 2].some((k) => { const q = kPanelPos(k); return Math.hypot(ptr.x - q.x, ptr.y - q.y) < 100; }) ? { key: "objekt", dauer: CONFIG.haltenScan } : null;
+    case "montage": {
+      if (!S.aktiv || (S.feedback && zeit - S.feedback.t < 4) || S.montageFertig > 0) return null;
+      const t = TIERE[S.aktiv];
+      return Math.hypot(ptr.x - t.x, ptr.y - t.y) < 95 ? { key: "montage:" + S.aktiv + ":" + auswahlIndex(), dauer: CONFIG.haltenMontage } : null;
+    }
+  }
+  return null;
+}
+function haltenUpdate(dt) {
+  const ziel = ptr.down && !halten.gesperrt && !reglerZieht ? zielFinden() : null;
+  if (!ziel) { halten.t = 0; halten.key = null; halten.ziel = null; return; }
+  if (ziel.key !== halten.key) { halten.key = ziel.key; halten.t = 0; }
+  halten.ziel = ziel; halten.dauer = ziel.dauer;
+  halten.t += dt;
+  if (halten.t >= ziel.dauer) { halten.gesperrt = true; halten.t = 0; halten.key = null; ausloesen(ziel); }
+}
+function ausloesen(ziel) {
+  if (fade.ziel === 1) return;
+  const k = ziel.key;
+  if (k === "funk") { funkWeiter(); return; }
+  if (k === "weiter") { weiterAusloesen(); return; }
+  if (k === "start") { starte("boot"); return; }
+  if (k === "neu") { neustart(true); return; }
+  if (k === "licht") { S.licht = true; S.lichtAn = zeit; aufgabe(""); return; }
+  if (k.startsWith("fund:")) { S.gefunden[ziel.id] = true; S.ohneFund = 0; S.pingT = -99; const q = tierPos(ziel.id); zoomZu(q.x, q.y, () => szeneStarten(ziel.id, "seq")); return; }
+  if (k.startsWith("pruef:")) { const q = tierPos(ziel.id); zoomZu(q.x, q.y, () => szeneStarten(ziel.id, "spiel")); return; }
+  if (k === "objekt") { starte("projektscan"); return; }
+  if (k.startsWith("montage:")) { montieren(); return; }
+}
+function zeigerZeichnen() {
+  if (!funk.aktuell && (["sprung", "sprung2", "auftauchen"].includes(phase) || ((phase === "boot" || phase === "seq") && !S.weiter))) return;
+  const p = halten.ziel ? halten.t / halten.dauer : 0;
+  const farbe = phase === "rueckblick" && regler.wert < -0.03 ? "#E8B07A" : "#5FD3C6";
+  ctx.save(); ctx.strokeStyle = farbe; ctx.lineWidth = 2;
+  ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 24, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ptr.x - 36, ptr.y); ctx.lineTo(ptr.x - 28, ptr.y); ctx.moveTo(ptr.x + 28, ptr.y); ctx.lineTo(ptr.x + 36, ptr.y);
+  ctx.moveTo(ptr.x, ptr.y - 36); ctx.lineTo(ptr.x, ptr.y - 28); ctx.moveTo(ptr.x, ptr.y + 28); ctx.lineTo(ptr.x, ptr.y + 36); ctx.stroke();
+  ctx.fillStyle = farbe; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 2.5, 0, Math.PI * 2); ctx.fill();
+  const zielDa = !ptr.down && !halten.gesperrt && zielFinden();
+  if (zielDa && phase !== "attract" && phase !== "ende") {
+    ctx.font = "600 14px " + MONO; ctx.fillStyle = "#F0B072"; ctx.textAlign = "center"; ctx.globalAlpha = 0.6 + 0.4 * Math.sin(zeit * 5);
+    ctx.fillText(zielDa.key === "weiter" || zielDa.key === "funk" ? "KURZ DRÜCKEN = WEITER" : phase === "montage" ? "HALTEN ZUM MONTIEREN" : "GEDRÜCKT HALTEN", ptr.x, ptr.y + 56); ctx.globalAlpha = 0.9;
+  }
+  if (p > 0) { ctx.strokeStyle = "#F0B072"; ctx.lineWidth = 6; ctx.lineCap = "round"; ctx.globalAlpha = 1; ctx.beginPath(); ctx.arc(ptr.x, ptr.y, 34, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+}
+
+// =====================================================================
+//  Phasen
+// =====================================================================
+function starte(neu) { phase = neu; phaseT = 0; const f = PHASEN[neu]; if (f && f.start) f.start(); }
+function taucherinFolgt(dt) {
+  const T = taucherin; if (imScannerBereich()) { T.vx *= 0.9; T.vy *= 0.9; return; }
+  const zx = clamp(ptr.x - T.blick * 170, 90, 1510), zy = clamp(ptr.y - 20, 170, 800);
+  const dx = zx - T.x, dy = zy - T.y, d = Math.hypot(dx, dy), v = Math.min(200, d * 1.5);
+  T.vx = lerp(T.vx, d > 4 ? (dx / d) * v : 0, Math.min(1, dt * 2.2)); T.vy = lerp(T.vy, d > 4 ? (dy / d) * v : 0, Math.min(1, dt * 2.2));
+  if (Math.abs(ptr.x - T.x) > 90) T.blick = ptr.x > T.x ? 1 : -1;
+}
+function aufDemBoot() { Object.assign(taucherin, { x: 470, y: 60, vx: 0, vy: 0, blick: 1, sichtbar: true, dreh: -rad(90), skala: 0.28 }); S.camX = 0; }
+function sprungUpdate(dt, era) {
+  const t = phaseT + 0.6, T = taucherin; T.vx = 0; T.vy = 0;
+  if (t < 1.6) { T.x = 470; T.y = 60; T.dreh = -rad(90); T.skala = 0.28; }
+  else if (t < 2.6) {
+    const p = (t - 1.6) / 1.0;
+    T.x = lerp(470, 610, p); T.y = 60 - Math.sin(p * Math.PI) * 45 + p * p * 300;
+    T.dreh = lerp(-rad(90), rad(75), ease(p)); T.skala = lerp(0.28, T_SKALA, p);
+    if (T.y > WASSERLINIE && !S.platsch) { S.platsch = zeit; for (let i = 0; i < 28; i++) BLASEN.push({ x: T.x + (Math.random() - 0.5) * 90, y: WASSERLINIE + 12 + Math.random() * 140, r: 2 + Math.random() * 4, v: 50 + Math.random() * 70 }); }
+  } else if (t < 3.8) { const p = (t - 2.6) / 1.2; T.x = lerp(610, 820, p); T.y = lerp(360, 440, ease(p)); T.dreh = lerp(rad(75), 0, ease(p)); T.skala = T_SKALA; }
+  else { T.dreh = 0; T.x += 230 * dt; T.y = 440 + Math.sin(t * 1.3) * 14; }
+  S.camX = clamp(T.x - 620, 0, 1600);
+  if (t > 6.2 && !S.sprungGesagt) {
+    S.sprungGesagt = true;
+    sag([era > 0.5 ? ["T", "Hier ist was los! Die Panels sind voller Leben."] : ["T", "Gar nichts los hier. Nur glatter Beton."]], () => blende(() => {
+      BLASEN.length = 0; S.camX = 0;
+      Object.assign(taucherin, { x: -160, y: 470, vx: 200, vy: 0, dreh: 0, skala: T_SKALA });
+      starte(era > 0.5 ? "pruefen" : "ankunft");
+    }));
+  }
+}
+
+// "Weiter" am großen Scanner: jede*r bestimmt das eigene Lesetempo
+const WEITER_TEXT = "Weiter: irgendwo kurz drücken";
+function weiterSetzen(fn, verz = 0.8) { S.weiter = fn; S.weiterAb = zeit + verz; aufgabe(WEITER_TEXT, "SCANNER"); }
+function weiterAusloesen() {
+  if (!S.weiter || zeit < S.weiterAb || !scGross()) return;
+  const f = S.weiter; S.weiter = null; f();
+  if (!S.weiter && letzteAufgabe === WEITER_TEXT) aufgabe("");
+}
+const briefingWeiter = () => { S.schritt++; S.schrittT = 0; if (S.schritt < 4) weiterSetzen(briefingWeiter, 1.0); else SC.ziel = 0; };
+const projektWeiter = () => { S.schritt++; S.schrittT = 0; if (S.schritt < 2) weiterSetzen(projektWeiter, 1.0); else SC.ziel = 0; };
+const ergebnisWeiter = () => { S.schritt++; S.schrittT = 0; if (S.schritt < 2) weiterSetzen(ergebnisWeiter, 1.0); else starte("ende"); };
+const ZUKUNFT_AUFGABE = "Drehe die Zeit vorwärts – gern auch hin und her";
+
+const PHASEN = {
+  attract: { start() { $("startkarte").classList.remove("weg"); SC.sichtbar = false; aufDemBoot(); aufgabe(""); }, update() {} },
+
+  // ---------- Station 1 · Ankunft ----------
+  boot: {
+    start() {
+      $("startkarte").classList.add("weg"); SC.sichtbar = true; SC.g = SC.ziel = 0; weltEra = 0;
+      aufDemBoot(); S.schritt = -1; S.schrittT = 0; aufgabe("");
+      regler.ziel = regler.wert = 0; reglerSetzen("zeit", 0, 0, false, "rueck");
+      $("ortkarte").classList.add("an");
+    },
+    update(dt) {
+      S.schrittT += dt;
+      if (phaseT > 2.4 && S.schritt < 0) { $("ortkarte").classList.remove("an"); SC.ziel = 1; S.schritt = 0; S.schrittT = -1.0; }
+      if (S.schritt === 0 && scGross() && !S.briefingLaeuft) { S.briefingLaeuft = true; weiterSetzen(briefingWeiter, 1.4); }
+      if (S.schritt >= 4 && SC.g <= 0.01) starte("sprung");
+    },
+  },
+  sprung: { start() { S.sprungGesagt = false; S.platsch = false; weltEra = 0; }, update(dt) { sprungUpdate(dt, 0); } },
+  ankunft: {
+    start() { taucherin.sichtbar = true; S.bereitLicht = false; S.licht = false; },
+    update(dt) {
+      const T = taucherin; T.vx = lerp(T.vx, T.x < 380 ? 190 : 0, dt * 2); T.vy = lerp(T.vy, 470 - T.y, dt);
+      if (phaseT > 1.6 && !S.bereitLicht) { S.bereitLicht = true; aufgabe("Licht einschalten: irgendwo gedrückt halten"); }
+      if (S.licht && zeit - S.lichtAn > 1.0) starte("suche");
+    },
+  },
+
+  // ---------- Station 2 · Entdecken – jedes gefundene Tier startet sofort seine Sequenz ----------
+  suche: {
+    start() {
+      S.licht = true; S.ohneFund = 0; S.pingT = -99;
+      const n = TIER_IDS.filter((id) => S.gespielt[id]).length;
+      aufgabe(n ? `Suche weiter nach Lebenszeichen (${n}/3)` : "Suche mit dem Licht nach Lebenszeichen");
+    },
+    update(dt) {
+      if (S.zoom) { taucherin.vx *= 0.9; taucherin.vy *= 0.9; return; }
+      taucherinFolgt(dt);
+      let dmin = 1e9, naechst = null;
+      for (const id of TIER_IDS) {
+        if (!S.reagiert[id] && sichtbarkeit(id) > 0.6) { S.reagiert[id] = true; S.reakt[id] = zeit; }
+        if (S.gefunden[id]) continue;
+        const q = tierPos(id), d = Math.hypot(ptr.x - q.x, ptr.y - q.y); if (d < dmin) { dmin = d; naechst = id; }
+      }
+      S.signal = naechst ? clamp(1 - dmin / 700, 0, 1) : 0;
+      S.ohneFund += dt;
+      if (naechst && S.ohneFund > CONFIG.pingNach && zeit - S.pingT > 2.6) { S.pingT = zeit; S.pingZiel = naechst; }
+    },
+  },
+
+  // ---------- Station 3 · Beobachtungen (heute) und Station 6 · Minispiele ----------
+  seq: { start() {}, update(dt) { szeneUpdate(dt); } },
+  mini2: { start() {}, update(dt) { szeneUpdate(dt); } },
+
+  // ---------- Übergang zum Archiv ----------
+  archiv: {
+    start() {
+      aufgabe(""); S.licht = true;
+      sag([["B", "Drei Tiere, dreimal dasselbe Problem."], ["T", "War das hier schon immer so?"], ["B", "Dein Scanner hat Archivdaten. Schau nach."]], () => starte("rueckblick"));
+    },
+    update(dt) { taucherinZiel(420, 520, dt, 1.2); },
+  },
+
+  // ---------- Station 4 · Rückblick ----------
+  rueckblick: {
+    start() {
+      aufgabe(""); S.licht = true; SC.ziel = 1; regler.ziel = regler.wert = 0; reglerSetzen("zeit", -1, 0, false, "rueck");
+      S.rb = { intro: true, w1: false, w2: false, s1844: false, s1788: -1, zurueck: false, fertig: -1 };
+    },
+    update(dt) {
+      taucherinZiel(420, 520, dt, 1.2);
+      const e = regler.wert, rb = S.rb;
+      if (rb.intro) {
+        if (scGross() && !rb.w1) { rb.w1 = true; weiterSetzen(() => { rb.intro = false; reglerSetzen("zeit", -1, 0, true); aufgabe("Drehe die Zeit am Regler zurück (Mausrad oder ← →)"); }, 1.4); }
+        return;
+      }
+      if (!rb.s1844 && e < -0.4) rb.s1844 = true;
+      if (rb.s1788 < 0 && e < -0.95) { rb.s1788 = zeit; regler.ziel = -1; regler.frei = false; regler.leuchten = false; aufgabe(""); }
+      if (rb.s1788 > 0 && !rb.zurueck && zeit - rb.s1788 > 3.4) { rb.zurueck = true; reglerSetzen("zeit", -1, 0, true); aufgabe("Drehe zurück ins Heute"); }
+      if (rb.zurueck && rb.fertig < 0 && e > -0.03 && regler.ziel > -0.03) { rb.fertig = zeit; regler.ziel = 0; regler.frei = false; regler.leuchten = false; aufgabe(""); }
+      if (rb.fertig > 0 && zeit - rb.fertig > 1.2 && !rb.w2) { rb.w2 = true; weiterSetzen(() => { SC.ziel = 0; }, 0.6); }
+      if (rb.w2 && !S.weiter && SC.ziel === 0 && SC.g <= 0.01 && !rb.gefragt) { rb.gefragt = true; aufgabe("");
+        sag([["T", "Was wäre, wenn die Mauer wieder mehr Lebensraum bieten könnte?"], ["B", "Gute Frage. Wir schicken dir was runter – schau's dir genau an."]], () => starte("lieferung")); }
+    },
+  },
+
+  // ---------- Station 5 · Living Seawalls ----------
+  lieferung: {
+    start() { aufgabe(""); S.kiste = { x: 800, y: -80, offen: 0, licht: 0, weg: 0 }; S.unt = [0, 0, 0]; },
+    update(dt) {
+      taucherinZiel(380, 640, dt, 1.0);
+      const K = S.kiste; K.licht = Math.min(1, K.licht + dt);
+      K.y = lerp(-80, 760, ease(clamp(phaseT / 4.5, 0, 1)));
+      if (phaseT > 4.7) K.offen = Math.min(1, K.offen + dt / 1.2);
+      if (K.offen >= 1) starte("untersuchen");
+    },
+  },
+  untersuchen: {
+    start() { S.unt = [0, 0, 0]; S.untFertig = false; aufgabe("Drei Panels! Untersuche jedes mit dem Licht"); },
+    update(dt) {
+      taucherinZiel(380, 640, dt, 1.0);
+      PANEL_TYPEN.forEach((p, k) => { if (S.unt[k] >= 1) return; const q = kPanelPos(k); if (Math.hypot(ptr.x - q.x, ptr.y - q.y) < 90) S.unt[k] = Math.min(1, S.unt[k] + dt / 0.7); });
+      if (!S.untFertig && S.unt.every((u) => u >= 1)) { S.untFertig = true; aufgabe("Halte auf einem Panel gedrückt, um es zu scannen"); }
+    },
+  },
+  projektscan: {
+    start() { aufgabe(""); SC.ziel = 1; S.schritt = 0; S.schrittT = -1.0; S.psW = false; },
+    update(dt) {
+      taucherinZiel(380, 640, dt, 1.0); S.schrittT += dt;
+      if (scGross() && !S.psW) { S.psW = true; weiterSetzen(projektWeiter, 2.0); }
+      if (S.schritt >= 2 && SC.g <= 0.01) starte("montage");
+    },
+  },
+  montage: {
+    start() {
+      aufgabe("Ebbe – die Mauer fällt trocken …"); wasserZiel = 770; S.aktiv = null; S.feedback = null; S.falsch = null; S.montageFertig = -1; S.ebbeBereit = false;
+      regler.ziel = regler.wert = 0; reglerSetzen("auswahl", -1, 1, false);
+    },
+    update(dt) {
+      const K = S.kiste;
+      if (K) { // Panels zurück in die Kiste, Kiste neben die Taucherin
+        K.offen = Math.max(0, K.offen - dt / 1.0); K.licht = Math.max(0, K.licht - dt);
+        if (K.offen <= 0) { K.weg = Math.min(1, K.weg + dt / 2.2); K.x = lerp(800, 330, ease(K.weg)); K.y = lerp(760, 820, ease(K.weg)); }
+      }
+      taucherinZiel(190, 838, dt, 0.9);
+      if (!S.ebbeBereit) { if (wasserY > 640) { S.ebbeBereit = true; aufgabe("Zeige auf eine leuchtende Stelle an der Wand"); } return; }
+      if (S.montageFertig < 0) {
+        for (const id of TIER_IDS) {
+          if (S.platziert[id] || S.aktiv === id) continue;
+          const t = TIERE[id]; if (Math.hypot(ptr.x - t.x, ptr.y - t.y) < 95) { S.aktiv = id; S.falsch = null; reglerSetzen("auswahl", -1, 1, true); aufgabe("Panel am Regler wählen, dann auf der Stelle gedrückt halten"); }
+        }
+      }
+      if (S.feldT > 0 && zeit - S.feldT > FELD_DAUER + 0.8 && wasserZiel !== WASSERLINIE) wasserZiel = WASSERLINIE;
+      if (S.feldT > 0 && zeit - S.feldT > FELD_DAUER + 3.8) starte("auftauchen");
+    },
+  },
+  auftauchen: {
+    start() { aufgabe(""); S.auftauchBlende = false; },
+    update(dt) { taucherinZiel(640, 100, dt, 1.2); if (phaseT > 2.2 && !S.auftauchBlende) { S.auftauchBlende = true; blende(() => starte("zukunft")); } },
+  },
+
+  // ---------- Station 6 · Zwei Jahre später ----------
+  zukunft: {
+    start() {
+      aufDemBoot(); S.kiste = null; S.licht = false; wasserY = wasserZiel = WASSERLINIE; weltEra = 0; SC.sichtbar = true; SC.ziel = 0;
+      regler.ziel = regler.wert = 0; reglerSetzen("zeit", 0, 1, false, "vor");
+      S.zukunftFertig = -1; S.zIntro = false; S.zW = false; S.zBlende = false; aufgabe("");
+      TIER_IDS.forEach((id) => (S.platziert[id] = true));
+      sag([["B", "Alle Panels hängen. Jetzt heißt es warten."], ["T", "Ich starte das Langzeit-Monitoring."]], () => { SC.ziel = 1; S.zIntro = true; });
+    },
+    update() {
+      if (S.zIntro && scGross() && !S.zW) { S.zW = true; weiterSetzen(() => { S.zIntro = false; reglerSetzen("zeit", 0, 1, true, "vor"); aufgabe(ZUKUNFT_AUFGABE); }, 1.4); }
+      if (!S.zIntro && S.zW && regler.frei && S.zukunftFertig < 0) {
+        if (regler.wert > 0.97 && !S.weiter) weiterSetzen(() => { S.zukunftFertig = zeit; regler.frei = false; regler.leuchten = false; }, 0.3);
+        else if (regler.wert < 0.93 && S.weiter) { S.weiter = null; aufgabe(ZUKUNFT_AUFGABE); }
+      }
+      if (S.zukunftFertig > 0 && zeit - S.zukunftFertig > 1.8 && SC.ziel === 1) SC.ziel = 0;
+      if (S.zukunftFertig > 0 && SC.ziel === 0 && SC.g <= 0.01 && !S.zBlende) { S.zBlende = true; blende(() => { weltEra = 1; starte("sprung2"); }, 1.2, "2 JAHRE SPÄTER"); }
+    },
+  },
+  sprung2: { start() { S.sprungGesagt = false; S.platsch = false; weltEra = 1; aufDemBoot(); }, update(dt) { sprungUpdate(dt, 1); } },
+  pruefen: {
+    start() {
+      taucherin.sichtbar = true; S.licht = true; weltEra = 1;
+      if (!S.pIntroGezeigt) { S.pIntroGezeigt = true; S.pIntro = true; S.pW = false; SC.ziel = 1; aufgabe(""); }
+      else aufgabe("Wähle das nächste Tier: zeigen und gedrückt halten", "DU BIST DRAN");
+    },
+    update(dt) {
+      if (S.pIntro && scGross() && !S.pW) { S.pW = true; weiterSetzen(() => { S.pIntro = false; SC.ziel = 0; aufgabe("Zeige auf ein Tier und halte gedrückt", "DU BIST DRAN"); }, 1.4); }
+      if (!S.zoom) taucherinFolgt(dt); else { taucherin.vx *= 0.9; taucherin.vy *= 0.9; }
+    },
+  },
+  ergebnis: {
+    start() { aufgabe(""); SC.ziel = 1; S.schritt = 0; S.schrittT = -1.0; S.eW = false; },
+    update(dt) {
+      taucherinZiel(420, 520, dt, 1.0); S.schrittT += dt;
+      if (scGross() && !S.eW) { S.eW = true; weiterSetzen(ergebnisWeiter, 2.0); }
+    },
+  },
+  ende: {
+    start() { letzteEingabe = zeit; aufgabe("Gedrückt halten für einen neuen Tauchgang"); },
+    update(dt) { S.schrittT += dt; if (zeit - letzteEingabe > CONFIG.endeReset) neustart(false); },
+  },
+};
+
+function montieren() {
+  const id = S.aktiv, typ = PANEL_TYPEN[auswahlIndex()].id;
+  if (typ === TIERE[id].panel) {
+    S.platziert[id] = true; S.feedback = { id, t: zeit }; S.falsch = null; S.aktiv = null; regler.frei = false; regler.leuchten = false;
+    if (TIER_IDS.every((i) => S.platziert[i])) { S.montageFertig = zeit; aufgabe(""); sag([["B", "Sehr gut! Den Rest der Wand montiert jetzt das Team – Panel an Panel."]], () => { S.feldT = zeit; }); }
+    else aufgabe("Nächste Stelle: zeigen, Panel wählen, halten");
+  } else { S.falsch = { id, t: zeit }; SC.wackeln = 0.6; }
+}
+
+// Test-Sprünge (Tasten 1–8)
+function springe(neu) {
+  funkLeeren(); sz = null; fade = { a: 0, ziel: 0, dann: null, halten: 0 }; $("fade").style.opacity = 0; $("fadetext").textContent = "";
+  $("startkarte").classList.add("weg"); $("ortkarte").classList.remove("an");
+  zustandNeu(); kam.z = 1; kam.cx = W / 2; kam.cy = H / 2;
+  SC.sichtbar = true; SC.g = SC.ziel = 0; regler.ziel = regler.wert = 0; reglerSetzen("zeit", 0, 0, false, "rueck");
+  wasserY = wasserZiel = WASSERLINIE; weltEra = 0; BLASEN.length = 0;
+  Object.assign(taucherin, { x: 380, y: 470, vx: 0, vy: 0, blick: 1, sichtbar: true, dreh: 0, skala: T_SKALA });
+  const reihe = ["boot", "suche", "archiv", "rueckblick", "lieferung", "zukunft", "pruefen", "ergebnis"], n = reihe.indexOf(neu);
+  if (n >= 1) S.licht = true;
+  if (n >= 2) TIER_IDS.forEach((id) => { S.gefunden[id] = true; S.gespielt[id] = true; });
+  if (n >= 5) { TIER_IDS.forEach((id) => (S.platziert[id] = true)); S.feldT = zeit - 99; }
+  if (n >= 6) weltEra = 1;
+  if (n >= 7) { TIER_IDS.forEach((id) => (S.geprueft[id] = true)); S.pIntroGezeigt = true; }
+  starte(neu);
+}
+function neustart(direkt) {
+  funkLeeren(); sz = null; zustandNeu(); kam.z = 1; kam.cx = W / 2; kam.cy = H / 2;
+  SC.sichtbar = false; SC.g = SC.ziel = 0; regler.ziel = regler.wert = 0; reglerSetzen("zeit", 0, 0, false, "rueck");
+  wasserY = wasserZiel = WASSERLINIE; weltEra = 0; BLASEN.length = 0; taucherin.sichtbar = false;
+  aufgabe(""); $("ortkarte").classList.remove("an");
+  if (direkt) { $("startkarte").classList.add("weg"); starte("boot"); } else starte("attract");
+}
+
+// =====================================================================
+//  Nahansicht: Beobachtung (heute, nicht spielbar) und Minispiel (nach 2 Jahren)
+// =====================================================================
+const PANEL_GROSS = { x: 980, y: 500, r: 200 };
+const FUGE = { x: 720, y: 300 };
+const AUSTER_ZIEL = 20;
+const MINI_TEXT = {
+  fisch: { beob: "Schau zu: Findet der Schleimfisch ein Versteck?", ziel: "Bring den Fisch in die Höhle des Panels, bevor der Raubfisch da ist.",
+    steuer: "Der Fisch folgt deinem Licht.", erinn: "Vorhin gab es kein Versteck – jetzt schon.", hinweis: "Moment mal – da ist doch ein Versteck im Panel! Versuch es noch einmal." },
+  schnecke: { beob: "Schau zu: Was passiert mit der Schnecke bei Ebbe?", ziel: "Führe die Schnecke in den Tümpel, bevor das Wasser weg ist.",
+    steuer: "Die Schnecke kriecht deinem Licht hinterher.", erinn: "Vorhin ist sie bei Ebbe ausgetrocknet.", hinweis: "Da vorne ist doch ein Tümpel! Versuch es noch einmal." },
+  auster: { beob: "Schau zu: Können sich die Austernlarven festsetzen?", ziel: `Lenke mindestens ${AUSTER_ZIEL} Austernlarven auf das Rillen-Panel.`,
+    steuer: "Die Larven folgen deinem Licht.", erinn: "Vorhin sind sie an der glatten Wand abgerutscht.", hinweis: "Die Rillen geben Halt! Versuch es noch einmal." },
+};
+function szeneStarten(id, modus, versuch = 1) {
+  const seq = modus === "seq";
+  sz = { id, seq, erfolg: !seq, versuch, st: 0, ct: 0, et: 0, stufe: seq ? "spiel" : versuch > 1 ? "countdown" : "intro", ok: false, sicher: false,
+    marken: [], hist: [], histT: 0, dauer: seq ? CONFIG.seq[id] : CONFIG.mini2[id], raus: false, zu: false, w: false, zp: { x: 400, y: 450 }, zdown: false };
+  phase = seq ? "seq" : "mini2"; phaseT = 0; taucherin.sichtbar = false; SC.ziel = sz.stufe === "intro" ? 1 : 0;
+  if (id === "fisch") Object.assign(sz, { fx: 560, fy: 520, fdir: 1, rx: 1800, ry: 470 });
+  if (id === "schnecke") Object.assign(sz, { sx: seq ? 760 : 700, sy: seq ? 430 : 380, sdir: 1, wasser: 230, temp: CONFIG.wasserTemp, aus: 0 });
+  if (id === "auster") { sz.larven = []; for (let i = 0; i < 50; i++) sz.larven.push({ x: 80 + Math.random() * 320, y: 220 + Math.random() * 480, vx: 0, vy: 0, z: "frei", t: 0 }); sz.haften = 0; sz.fest = 0; }
+  sz.zp = id === "auster" ? { x: 240, y: 460 } : id === "schnecke" ? { x: sz.sx + 30, y: sz.sy + 160 } : { x: 700, y: 420 };
+  if (seq) aufgabe(MINI_TEXT[id].beob, "BEOBACHTUNG");
+  else if (sz.stufe === "intro") aufgabe("");
+  else aufgabe(MINI_TEXT[id].ziel, "DU BIST DRAN");
+}
+function fazitStart() { sz.stufe = "fazit"; sz.w = false; S.fazit = { t: zeit }; SC.ziel = 1; aufgabe(""); }
+function szeneEnde() {
+  const s = sz; sz = null; S.fazit = null; SC.ziel = 0; SC.g = 0;
+  Object.assign(taucherin, { sichtbar: true, x: 380, y: 520, vx: 0, vy: 0 });
+  if (s.seq) { S.gespielt[s.id] = true; starte(TIER_IDS.every((i) => S.gespielt[i]) ? "archiv" : "suche"); }
+  else { S.geprueft[s.id] = true; starte(TIER_IDS.every((i) => S.geprueft[i]) ? "ergebnis" : "pruefen"); }
+}
+// Drehbuch der Beobachtungen: ein unsichtbares "Licht" führt die Tiere
+function seqSkript(s, dt) {
+  const t = s.st, P = s.zp;
+  if (s.id === "fisch") {
+    const wp = t < 3 ? [900, 420] : t < 6 ? [1150, 640] : [820, 520];
+    P.x = lerp(P.x, wp[0], Math.min(1, dt * 1.2)); P.y = lerp(P.y, wp[1], Math.min(1, dt * 1.2));
+    if ((t > 2.6 && s.marken.length === 0) || (t > 5.6 && s.marken.length === 1)) s.marken.push({ x: s.fx + 80 * s.fdir, y: s.fy, t: zeit });
+  } else if (s.id === "schnecke") { P.x = s.sx + 30; P.y = Math.min(860, s.sy + 160); }
+  else { const k = ease(clamp(t / 4, 0, 1)); P.x = lerp(240, FUGE.x - 20, k); P.y = lerp(460, FUGE.y + 60, k); s.zdown = t > 3.2; }
+}
+function szeneUpdate(dt) {
+  const s = sz; if (!s) return;
+  if (s.stufe === "intro") {
+    if (scGross() && !s.w) { s.w = true; weiterSetzen(() => { SC.ziel = 0; s.stufe = "countdown"; s.ct = 0; aufgabe(MINI_TEXT[s.id].ziel, "DU BIST DRAN"); }, 1.4); }
+    return;
+  }
+  if (s.stufe === "countdown") { s.ct += dt; if (s.ct >= 3.4) { s.stufe = "spiel"; s.st = 0; } return; }
+  if (s.stufe === "nochmal") { s.et += dt; if (s.et > 3.4 && !s.raus) { s.raus = true; blende(() => szeneStarten(s.id, "spiel", s.versuch + 1)); } return; }
+  if (s.stufe === "fazit") {
+    if (scGross() && !s.w) { s.w = true; weiterSetzen(() => { SC.ziel = 0; s.zu = true; }, 1.8); }
+    if (s.zu && SC.g <= 0.01 && !s.raus) { s.raus = true; blende(szeneEnde); }
+    return;
+  }
+  if (s.stufe === "spiel") { s.st += dt; if (s.seq) seqSkript(s, dt); }
+  if (s.id === "fisch") fischUpdate(s, dt); else if (s.id === "schnecke") schneckeUpdate(s, dt); else austerUpdate(s, dt);
+  s.histT += dt;
+  if (s.histT >= 0.25 && s.stufe === "spiel") { s.histT = 0; if (s.id === "schnecke") s.hist.push({ w: clamp(1 - (s.wasser - 230) / 630, 0, 1), t: s.temp }); if (s.id === "auster") s.hist.push(s.fest); }
+  if (s.stufe === "ende") {
+    s.et += dt;
+    if (s.et > (s.id === "fisch" ? 2.8 : 2.5)) { if (s.seq || s.ok) fazitStart(); else { s.stufe = "nochmal"; s.et = 0; aufgabe(""); } }
+  }
+}
+function fischUpdate(s, dt) {
+  const P = s.seq ? s.zp : ptr;
+  if (s.stufe === "spiel") {
+    if (Math.abs(P.x - s.fx) > 50) s.fdir = P.x > s.fx ? 1 : -1;
+    const tx = P.x - 150 * s.fdir, ty = P.y + 10;
+    s.fx += (tx - s.fx) * Math.min(1, dt * 2.2); s.fy += (ty - s.fy) * Math.min(1, dt * 2.2);
+    s.fy = clamp(s.fy, 180, 820); s.fx = clamp(s.fx, 60, 1540);
+    s.rx = lerp(1800, 1330, clamp(s.st / s.dauer, 0, 1)); s.ry = 470 + Math.sin(s.st * 1.3) * 30;
+    if (s.erfolg && Math.hypot(s.fx - PANEL_GROSS.x, s.fy - PANEL_GROSS.y - 6) < 95) s.sicher = true;
+    if (s.sicher || s.st >= s.dauer) { s.stufe = "ende"; s.et = 0; s.ex = s.fx; s.ey = s.fy; s.ok = s.sicher; }
+  } else if (s.stufe === "ende") {
+    if (s.sicher) { const p = ease(clamp(s.et / 1.2, 0, 1)); s.fx = lerp(s.ex, PANEL_GROSS.x, p); s.fy = lerp(s.ey, PANEL_GROSS.y + 6, p); s.rx -= 520 * dt; s.ry = lerp(s.ry, 300, dt); }
+    else { s.rx -= 900 * dt; if (s.rx < s.fx + 300) { s.fdir = -1; s.fx -= 820 * dt; } }
+  }
+}
+function schneckeUpdate(s, dt) {
+  const P = s.seq ? s.zp : ptr, pool = { x: PANEL_GROSS.x, y: PANEL_GROSS.y };
+  if (s.stufe === "spiel") {
+    s.wasser = lerp(230, 860, clamp(s.st / (s.dauer * 0.8), 0, 1));
+    const dx = P.x - s.sx, dy = P.y - s.sy, d = Math.hypot(dx, dy), vmax = s.erfolg ? 75 : 28;
+    if (d > 30) { const v = Math.min(vmax, d); s.sx += (dx / d) * v * dt; s.sy += (dy / d) * v * dt; if (Math.abs(dx) > 10) s.sdir = dx > 0 ? 1 : -1; }
+    s.sy = clamp(s.sy, 200, 820); s.sx = clamp(s.sx, 80, 1500);
+    const imPool = s.erfolg && Math.hypot(s.sx - pool.x, s.sy - pool.y) < PANEL_GROSS.r * 0.55;
+    if (s.sy < s.wasser && !imPool) s.aus += dt;
+    s.temp = imPool ? lerp(s.temp, CONFIG.wandTempEbbe - 10, dt * 2) : s.sy < s.wasser ? Math.min(CONFIG.wandTempEbbe, CONFIG.wasserTemp + s.aus * 1.7) : lerp(s.temp, CONFIG.wasserTemp, dt * 2);
+    if (imPool) s.sicher = true;
+    if ((s.erfolg && s.sicher) || s.st >= s.dauer) { s.stufe = "ende"; s.et = 0; s.ex = s.sx; s.ey = s.sy; s.ok = s.sicher; }
+  } else if (s.stufe === "ende") {
+    if (s.ok) { const p = ease(clamp(s.et / 1.4, 0, 1)); s.sx = lerp(s.ex, pool.x, p); s.sy = lerp(s.ey, pool.y - 10, p); s.temp = lerp(s.temp, CONFIG.wandTempEbbe - 10, dt * 2); }
+    else s.temp = Math.min(CONFIG.wandTempEbbe, s.temp + dt * 3);
+    s.wasser = Math.min(860, s.wasser + dt * 40);
+  }
+}
+function austerUpdate(s, dt) {
+  const P = s.seq ? s.zp : ptr, D = s.seq ? s.zdown : ptr.down;
+  const strom = s.stufe === "spiel" ? 38 : s.ok ? 30 : 420;
+  let haften = 0, fest = 0;
+  s.larven.forEach((l, i) => {
+    if (l.z === "fest") { fest++; return; }
+    if (l.z === "haftet") { l.t += dt; haften++; if (l.t > 0.9) { l.z = "rutscht"; l.t = 0; } return; }
+    if (l.z === "rutscht") l.t += dt;
+    const d = Math.hypot(P.x - l.x, P.y - l.y);
+    if (l.z === "rutscht") { l.vy = lerp(l.vy, 90, dt * 2); l.vx = lerp(l.vx, strom, dt); }
+    else if (s.stufe === "spiel" && d < (s.seq ? 300 : 520)) {
+      const tx = P.x + Math.cos(i * 1.3 + zeit) * 40, ty = P.y + Math.sin(i * 1.7 + zeit) * 40;
+      l.vx = lerp(l.vx, (tx - l.x) * 1.3 + strom * 0.3, dt * 1.6); l.vy = lerp(l.vy, (ty - l.y) * 1.3, dt * 1.6);
+    } else if (s.ok && s.stufe === "ende" && i % 2 === 0) {
+      l.vx = lerp(l.vx, (PANEL_GROSS.x - l.x) * 1.2, dt * 2); l.vy = lerp(l.vy, (PANEL_GROSS.y - l.y) * 1.2, dt * 2);
+    } else { l.vx = lerp(l.vx, strom, dt * 0.8); l.vy = lerp(l.vy, Math.sin(zeit + i) * 20, dt); }
+    if (s.erfolg && l.z === "frei" && Math.hypot(l.x - PANEL_GROSS.x, l.y - PANEL_GROSS.y) < PANEL_GROSS.r * 0.78) { l.z = "fest"; l.vx = l.vy = 0; l.t = zeit; return; }
+    if (s.seq && l.z === "frei" && s.stufe === "spiel" && D && l.x > 540) { l.z = "haftet"; l.t = 0; l.vx = l.vy = 0; return; }
+    const v = Math.hypot(l.vx, l.vy); if (v > 300) { l.vx *= 300 / v; l.vy *= 300 / v; }
+    l.x += l.vx * dt; l.y += l.vy * dt + Math.sin(zeit * 3 + i) * 0.4;
+  });
+  s.haften = haften; s.fest = fest;
+  if (s.stufe === "spiel") {
+    if (s.erfolg && s.fest >= AUSTER_ZIEL) { s.stufe = "ende"; s.et = 0; s.ok = true; }
+    else if (s.st >= s.dauer) { s.stufe = "ende"; s.et = 0; s.ok = s.erfolg && s.fest >= AUSTER_ZIEL; }
+  }
+}
+function szeneZeichnen() {
+  const s = sz; if (!s) return;
+  ctx.fillStyle = "#77868A"; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "#65737A"; ctx.lineWidth = 5; ctx.beginPath();
+  ctx.moveTo(0, 300); ctx.lineTo(W, 300); ctx.moveTo(0, 680); ctx.lineTo(W, 680);
+  ctx.moveTo(560, 0); ctx.lineTo(560, 300); ctx.moveTo(1240, 300); ctx.lineTo(1240, 680); ctx.moveTo(360, 680); ctx.lineTo(360, H); ctx.stroke();
+  SPRENKEL.forEach((p) => { ctx.fillStyle = `rgba(40,55,60,${p.a})`; ctx.beginPath(); ctx.arc(p.x, p.y * 1.1 - 120, p.r * 2, 0, Math.PI * 2); ctx.fill(); });
+  if (s.erfolg) {
+    ALGEN.forEach((a, i) => { if (i % 2) return; ctx.globalAlpha = 0.6; ctx.fillStyle = a.c; ctx.beginPath(); ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2); ctx.fill(); });
+    ctx.globalAlpha = 1;
+    const andere = PANEL_TYPEN.map((p) => p.id).filter((t) => t !== TIERE[s.id].panel);
+    [[570, 500], [1390, 500], [775, 145], [1185, 145], [775, 855], [1185, 855]].forEach(([x, y], k) => panelZeichnen(andere[k % 2], x, y, 190, 0.85, { alpha: 0.85 }));
+    panelZeichnen(TIERE[s.id].panel, PANEL_GROSS.x, PANEL_GROSS.y, PANEL_GROSS.r, 0.85);
+  }
+  if (s.id === "schnecke") {
+    ctx.fillStyle = "rgba(230,220,190,.18)"; ctx.fillRect(0, 0, W, s.wasser);
+    ctx.fillStyle = "rgba(255,240,200,.35)"; ctx.beginPath(); ctx.arc(1450, 60, 46, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "rgba(160,215,220,.85)"; ctx.lineWidth = 3; ctx.beginPath();
+    for (let x = 0; x <= W; x += 20) { const y = s.wasser + Math.sin(x * 0.02 + zeit * 2) * 4; x ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    ctx.stroke();
+    ctx.fillStyle = "rgba(20,70,85,.32)"; ctx.fillRect(0, s.wasser, W, H - s.wasser);
+  } else { ctx.fillStyle = "rgba(20,70,85,.3)"; ctx.fillRect(0, 0, W, H); }
+
+  if (s.id === "fisch") {
+    const alpha = s.sicher ? 1 - clamp((s.et - 1.0) / 0.6, 0, 0.5) : 1;
+    if (s.fx > -260) bild("fisch", s.fx, s.fy + Math.sin(zeit * 3) * 5, s.sicher ? lerp(2.4, 1.6, clamp(s.et / 1.2, 0, 1)) : 2.4, { flip: s.fdir < 0, alpha });
+    if (s.rx < 1900 && s.rx > -400) raubfisch(s.rx, s.ry, 1.6, true);
+    s.marken.forEach((m) => {
+      ctx.strokeStyle = "#F0B072"; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(m.x, m.y, 22, 0, Math.PI * 2); ctx.stroke();
+      kreuz(m.x, m.y, 0.8, "#F0B072"); txt("zu flach – kein Versteck", m.x, m.y - 34, 20, "#F0B072", "center", 600);
+    });
+  } else if (s.id === "schnecke") {
+    const trocken = !s.ok ? clamp((s.temp - 24) / 10, 0, 1) : 0, zurueck = !s.ok && s.stufe !== "spiel" ? clamp(s.et / 1, 0, 1) : 0;
+    bild("schnecke", s.sx, s.sy, (s.erfolg ? 1.6 : 2.3) * (1 - zurueck * 0.2), { flip: s.sdir < 0, filter: trocken > 0 ? `grayscale(${trocken * 0.8}) brightness(${1 + trocken * 0.25})` : null });
+    if (s.sy < s.wasser) txt(`${s.temp.toFixed(0)} °C`, s.sx, s.sy - 130, 22, s.temp > 26 ? "#E8703C" : "#5FD3C6", "center", 600, MONO);
+  } else {
+    if (s.seq) {
+      // Die große Auster sitzt allein in einer Fuge – der einzigen etwas rauen Stelle
+      ctx.fillStyle = "#56636A"; ctx.beginPath(); ctx.moveTo(FUGE.x - 120, FUGE.y - 8);
+      for (let x = FUGE.x - 120; x <= FUGE.x + 120; x += 12) ctx.lineTo(x, FUGE.y - 8 - ((x / 12) % 2 ? 7 : 0));
+      for (let x = FUGE.x + 120; x >= FUGE.x - 120; x -= 12) ctx.lineTo(x, FUGE.y + 8 + ((x / 12) % 2 ? 7 : 0));
+      ctx.closePath(); ctx.fill();
+      bild("auster", FUGE.x, FUGE.y - 10, 1.5 * (1 + Math.sin(zeit * 1.6) * 0.025));
+      txt("Fuge – die einzige raue Stelle", FUGE.x + 230, FUGE.y + 6, 18, "#DDF3F0", "center", 600, MONO);
+    } else bild("auster", PANEL_GROSS.x - 40, PANEL_GROSS.y - 30, 1.0);
+    let ersterKleber = true;
+    s.larven.forEach((l) => {
+      if (l.z === "fest") { const g = clamp((zeit - l.t) / 1.4, 0, 1); bild("auster", l.x, l.y, 0.08 + g * 0.2); return; }
+      ctx.fillStyle = "rgba(244,239,226,.95)"; ctx.beginPath(); ctx.arc(l.x, l.y, 4.5, 0, Math.PI * 2); ctx.fill();
+      if (l.z === "haftet") { // Fuß + Kleber
+        ctx.strokeStyle = "rgba(244,239,226,.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(l.x, l.y + 4); ctx.lineTo(l.x, l.y + 11); ctx.stroke();
+        ctx.fillStyle = `rgba(240,176,114,${0.8 - l.t * 0.5})`; ctx.beginPath(); ctx.arc(l.x, l.y + 12, 3 + l.t * 6, 0, Math.PI * 2); ctx.fill();
+        if (ersterKleber) { ersterKleber = false; txt("Kleber hält nicht", l.x, l.y - 18, 18, "#F0B072", "center", 600); }
+      }
+    });
+    const rutsch = s.larven.find((q) => q.z === "rutscht" && q.y < 880 && q.t < 1.2);
+    if (rutsch) txt("rutscht ab", rutsch.x, rutsch.y - 18, 18, "#F0B072", "center", 600);
+  }
+  if (s.erfolg && !s.sicher && !s.ok && (s.stufe === "spiel" || s.stufe === "countdown")) {
+    markierung(PANEL_GROSS.x, PANEL_GROSS.y, PANEL_GROSS.r * 0.85, "PANEL", "#5FD3C6");
+    if (s.versuch > 1) { const p = 0.5 + 0.5 * Math.sin(zeit * 5); ctx.strokeStyle = `rgba(240,176,114,${0.4 + 0.5 * p})`; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(PANEL_GROSS.x, PANEL_GROSS.y, PANEL_GROSS.r + 10 + p * 10, 0, Math.PI * 2); ctx.stroke(); }
+  }
+}
+// Über der Dunkelheit: Beschriftung der Larven, Countdown, Hinweis beim zweiten Versuch
+function banner(text, y) {
+  ctx.font = `600 30px ${SANS}`; const w = Math.min(1300, ctx.measureText(text).width + 80);
+  ctx.fillStyle = "rgba(8,28,33,.9)"; rrPfad(W / 2 - w / 2, y - 44, w, 70, 35); ctx.fill();
+  ctx.strokeStyle = "rgba(240,176,114,.8)"; ctx.lineWidth = 2; ctx.stroke();
+  txt(text, W / 2, y + 2, 30, "#FFFFFF", "center", 600);
+}
+function szeneOverlay() {
+  const s = sz; if (!s) return;
+  if (s.id === "auster" && (s.stufe === "spiel" || s.stufe === "countdown" || s.stufe === "intro")) {
+    const frei = s.larven.filter((l) => l.z !== "fest" && l.x > -20 && l.x < W + 20 && l.y < H);
+    if (frei.length > 5) {
+      const cx = frei.reduce((a, l) => a + l.x, 0) / frei.length, oy = Math.min(...frei.map((l) => l.y));
+      txt("AUSTERNLARVEN", cx, oy - 26, 18, "#FFFFFF", "center", 700, MONO);
+    }
+  }
+  if (s.stufe === "countdown") {
+    if (s.versuch > 1) banner(MINI_TEXT[s.id].hinweis, 150);
+    const n = 3 - Math.floor(s.ct / 0.85);
+    ctx.fillStyle = "rgba(8,28,33,.75)"; ctx.beginPath(); ctx.arc(W / 2, H / 2, 110, 0, Math.PI * 2); ctx.fill();
+    txt(n > 0 ? String(n) : "LOS!", W / 2, H / 2 + (n > 0 ? 44 : 22), n > 0 ? 130 : 64, "#F0B072", "center", 700);
+  }
+  if (s.stufe === "nochmal") banner(MINI_TEXT[s.id].hinweis, H / 2);
+}
+
+// =====================================================================
+//  Welt zeichnen (Stationen unter Wasser)
+// =====================================================================
+function bootZeichnen() {
+  ctx.save();
+  ctx.strokeStyle = "#5B6B70"; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(590, 112); ctx.lineTo(610, 40); ctx.lineTo(640, 40); ctx.lineTo(650, 112); ctx.moveTo(625, 40); ctx.lineTo(625, 70); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(380, 70); ctx.lineTo(380, 30); ctx.moveTo(372, 40); ctx.lineTo(388, 40); ctx.stroke();
+  ctx.fillStyle = "#F2EEE6"; rrPfad(330, 70, 120, 44, 6); ctx.fill();
+  ctx.fillStyle = "#2B3A40"; [344, 376, 408].forEach((x) => { rrPfad(x, 80, 24, 14, 3); ctx.fill(); });
+  ctx.fillStyle = "#ECE7DD"; ctx.beginPath(); ctx.moveTo(280, 110); ctx.lineTo(670, 110); ctx.lineTo(640, 150); ctx.lineTo(310, 150); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#E8913A"; ctx.fillRect(292, 118, 365, 7);
+  ctx.fillStyle = "rgba(42,111,125,.55)"; ctx.fillRect(270, WASSERLINIE, 420, 30);
+  ctx.restore();
+}
+function introZeichnen(dt) {
+  const era = phase === "sprung2" ? 1 : 0;
+  ctx.save(); ctx.translate(-S.camX, 0);
+  ctx.save(); ctx.translate(1598, 0); welt(era, true); ctx.restore(); welt(era);
+  if (era >= 0.5) tiereAnDerWand(1);
+  bootZeichnen();
+  if (S.platsch && zeit - S.platsch < 0.8) {
+    const p = (zeit - S.platsch) / 0.8;
+    ctx.strokeStyle = `rgba(255,255,255,${0.8 * (1 - p)})`; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.ellipse(610, WASSERLINIE, 30 + p * 90, 6 + p * 10, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  blasenZeichnen(dt);
+  taucherinZeichnen();
+  ctx.restore();
+  const unten = phase === "sprung" || phase === "sprung2";
+  dunkel(unten ? 0.42 : 0.12, [{ x: taucherin.x - S.camX + 100, y: taucherin.y, r: 320, k: 0.9 }]);
+}
+function kisteZeichnen() {
+  const K = S.kiste; if (!K) return;
+  if (K.weg < 0.01) {
+    ctx.fillStyle = "#1C2A30"; ctx.beginPath(); ctx.moveTo(700, WASSERLINIE - 18); ctx.lineTo(900, WASSERLINIE - 18); ctx.lineTo(880, WASSERLINIE + 10); ctx.lineTo(720, WASSERLINIE + 10); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#C9B48A"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(800, WASSERLINIE); ctx.lineTo(800, K.y - 60); ctx.stroke();
+  }
+  if (K.offen > 0.02) PANEL_TYPEN.forEach((p, k) => {
+    const q = kPanelPos(k);
+    panelZeichnen(p.id, q.x, q.y, OBJ.r * (0.45 + 0.55 * ease(K.offen)), 0, { dunkel: !(S.unt[k] >= 1) });
+  });
+  const x0 = K.x - 110;
+  ctx.fillStyle = "#8A5A2E"; rrPfad(x0, K.y - 60, 220, 120, 8); ctx.fill();
+  ctx.strokeStyle = "#5E3C1E"; ctx.lineWidth = 4; ctx.strokeRect(x0 + 10, K.y - 50, 200, 100);
+  ctx.beginPath(); ctx.moveTo(x0 + 10, K.y - 50); ctx.lineTo(x0 + 210, K.y + 50); ctx.moveTo(x0 + 210, K.y - 50); ctx.lineTo(x0 + 10, K.y + 50); ctx.stroke();
+  ctx.save(); ctx.globalAlpha *= 1 - ease(K.offen); ctx.translate(x0, K.y - 60); ctx.rotate(-ease(K.offen) * 1.9); ctx.fillStyle = "#9C6A38"; rrPfad(0, -14, 220, 14, 4); ctx.fill(); ctx.restore();
+  txt("SIMS", K.x, K.y + 12, 22, "#F2E6CF", "center", 700, MONO);
+}
+function weltOverlay() {
+  if (phase === "suche" && !S.zoom) {
+    TIER_IDS.forEach((id, i) => {
+      const q = tierPos(id);
+      if (S.gespielt[id]) { if (id !== "fisch") markierung(q.x, q.y, 70, "✕", "#E8703C"); return; }
+      if (S.gefunden[id]) return;
+      const g = (zeit * 0.5 + i * 0.37) % 1;
+      if (g < 0.1 && sichtbarkeit(id) < 0.3) { const a = (1 - g / 0.1) * 0.6; ctx.save(); ctx.strokeStyle = `rgba(255,250,230,${a})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x - 9, q.y); ctx.lineTo(q.x + 9, q.y); ctx.moveTo(q.x, q.y - 9); ctx.lineTo(q.x, q.y + 9); ctx.stroke(); ctx.restore(); }
+    });
+    if (S.pingZiel && zeit - S.pingT < 1.8 && !S.gefunden[S.pingZiel]) {
+      const q = tierPos(S.pingZiel), p = (zeit - S.pingT) / 1.8;
+      ctx.save(); ctx.strokeStyle = `rgba(95,211,198,${1 - p})`; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(q.x, q.y, 30 + p * 140, 0, Math.PI * 2); ctx.stroke();
+      const a = Math.atan2(q.y - ptr.y, q.x - ptr.x), x0 = ptr.x + Math.cos(a) * 60, y0 = ptr.y + Math.sin(a) * 60, x1 = ptr.x + Math.cos(a) * 120, y1 = ptr.y + Math.sin(a) * 120;
+      if (Math.hypot(q.x - ptr.x, q.y - ptr.y) > 160) {
+        ctx.strokeStyle = `rgba(95,211,198,${1 - p * 0.6})`; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+        ctx.lineTo(x1 - Math.cos(a - 0.5) * 22, y1 - Math.sin(a - 0.5) * 22); ctx.moveTo(x1, y1); ctx.lineTo(x1 - Math.cos(a + 0.5) * 22, y1 - Math.sin(a + 0.5) * 22); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+  if (phase === "pruefen" && !S.zoom && !S.pIntro) TIER_IDS.forEach((id) => { const q = tierPos(id); markierung(q.x, q.y, 76, S.geprueft[id] ? "✓" : TIERE[id].kurz.toUpperCase(), S.geprueft[id] ? "#5FD3C6" : "#F0B072"); });
+  if (phase === "untersuchen" && S.kiste) PANEL_TYPEN.forEach((p, k) => {
+    const q = kPanelPos(k), u = S.unt[k];
+    if (u >= 1) { symbol(p.bed, q.x, q.y - 120, 0.55, "#5FD3C6"); txt(BED_TEXT[p.bed], q.x, q.y - 150, 19, "#5FD3C6", "center", 700); }
+    else if (u > 0) { ctx.strokeStyle = "#F0B072"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, q.y, OBJ.r + 12, -Math.PI / 2, -Math.PI / 2 + u * Math.PI * 2); ctx.stroke(); }
+    else { ctx.strokeStyle = `rgba(240,176,114,${0.35 + 0.3 * Math.sin(zeit * 4 + k)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 10]); ctx.beginPath(); ctx.arc(q.x, q.y, OBJ.r + 12, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); }
+  });
+  if (phase === "montage" && S.ebbeBereit) TIER_IDS.forEach((id) => {
+    if (S.platziert[id]) return;
+    const t = TIERE[id], aktiv = S.aktiv === id, p = 0.5 + 0.5 * Math.sin(zeit * 4);
+    if (aktiv) panelZeichnen(PANEL_TYPEN[auswahlIndex()].id, t.x, t.y, 70, 0, { alpha: 0.55 });
+    ctx.save(); ctx.strokeStyle = aktiv ? "#F0B072" : `rgba(240,176,114,${0.5 + 0.5 * p})`; ctx.lineWidth = aktiv ? 4 : 3; if (!aktiv) ctx.setLineDash([10, 10]);
+    ctx.beginPath(); ctx.arc(t.x, t.y, 78 + (aktiv ? 0 : p * 6), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  });
+}
+function lichtStrahl() {
+  if (!S.licht || !taucherin.sichtbar || kam.z > 1.05 || SC.g > 0.5) return;
+  const h = weltZuSchirm(hand().x, hand().y);
+  const g = ctx.createLinearGradient(h.x, h.y, ptr.x, ptr.y);
+  g.addColorStop(0, `rgba(255,244,214,${0.22 + lichtStaerke * 0.15})`); g.addColorStop(1, "rgba(255,244,214,0.03)");
+  const ang = Math.atan2(ptr.y - h.y, ptr.x - h.x), br = 60;
+  ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(h.x + taucherin.blick * 14, h.y);
+  ctx.lineTo(ptr.x + Math.cos(ang + Math.PI / 2) * br, ptr.y + Math.sin(ang + Math.PI / 2) * br);
+  ctx.lineTo(ptr.x + Math.cos(ang - Math.PI / 2) * br, ptr.y + Math.sin(ang - Math.PI / 2) * br); ctx.closePath(); ctx.fill();
+}
+function weltZeichnen(dt) {
+  ctx.save(); kameraAnwenden();
+  welt(weltEra); tiereAnDerWand(weltEra); kisteZeichnen(); blasenZeichnen(dt); taucherinZeichnen();
+  ctx.restore();
+  const ebbe = clamp((wasserY - WASSERLINIE) / 600, 0, 1);
+  const D = phase === "ankunft" && !S.licht ? 0.74 : lerp(CONFIG.dunkelheit, 0.22, ebbe);
+  dunkel(D, weltLichter());
+  lichtStrahl();
+  ctx.save(); kameraAnwenden(); weltOverlay(); ctx.restore();
+  if (S.lichtAn > 0 && zeit - S.lichtAn < 0.6) { ctx.fillStyle = `rgba(255,244,214,${0.35 * (1 - (zeit - S.lichtAn) / 0.6)})`; ctx.fillRect(0, 0, W, H); }
+}
+
+// =====================================================================
+//  Hauptschleife
+// =====================================================================
+let vorher = performance.now();
+function schleife(jetzt) {
+  const dt = Math.min(0.05, (jetzt - vorher) / 1000); vorher = jetzt;
+  zeit += dt; phaseT += dt;
+  if (phase !== "attract" && phase !== "ende" && zeit - letzteEingabe > CONFIG.inaktivReset) neustart(false);
+  lichtStaerke = lerp(lichtStaerke, ptr.down ? 1 : 0, Math.min(1, dt * 6));
+  haltenUpdate(dt);
+  taucherinUpdate(dt);
+  const f = PHASEN[phase]; if (f && f.update) f.update(dt);
+  funkUpdate(dt); fadeUpdate(dt); scannerUpdate(dt); zoomUpdate(dt);
+  wasserY += (wasserZiel - wasserY) * Math.min(1, dt * 0.9);
+
+  ctx.clearRect(0, 0, W, H);
+  if (sz) { szeneZeichnen(); const L = sz.seq ? sz.zp : ptr; dunkel(0.4, [{ x: L.x, y: L.y, r: 320, warm: true }]); szeneOverlay(); }
+  else if (["attract", "boot", "sprung", "sprung2", "zukunft"].includes(phase)) introZeichnen(dt);
+  else weltZeichnen(dt);
+  scannerZeichnen();
+  zeigerZeichnen();
+  requestAnimationFrame(schleife);
+}
+neustart(false);
+requestAnimationFrame(schleife);
+</script>
+</body>
+</html>
